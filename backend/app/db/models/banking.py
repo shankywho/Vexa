@@ -7,13 +7,14 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, String
+from sqlalchemy import Date, Enum, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.domain.enums import BankTransactionDirection, DocumentStatus
 
 if TYPE_CHECKING:
+    from app.db.models.counterparty import Vendor
     from app.db.models.ledger import JournalEntry
     from app.db.models.procurement import Invoice
 
@@ -32,6 +33,7 @@ class BankAccount(UUIDPkMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     transactions: Mapped[list[BankTransaction]] = relationship(back_populates="bank_account")
+    payments: Mapped[list[Payment]] = relationship(back_populates="bank_account")
 
 
 class BankTransaction(UUIDPkMixin, TimestampMixin, Base):
@@ -60,6 +62,9 @@ class BankTransaction(UUIDPkMixin, TimestampMixin, Base):
 
     bank_account: Mapped[BankAccount] = relationship(back_populates="transactions")
     journal_entry: Mapped[JournalEntry | None] = relationship(back_populates="bank_transactions")
+    payments: Mapped[list[Payment]] = relationship(back_populates="bank_transaction")
+
+    __table_args__ = (Index("ix_bank_transactions_company_date", "company_id", "transaction_date"),)
 
 
 class Payment(UUIDPkMixin, TimestampMixin, Base):
@@ -87,3 +92,14 @@ class Payment(UUIDPkMixin, TimestampMixin, Base):
     )
 
     invoice: Mapped[Invoice | None] = relationship(back_populates="payments")
+    vendor: Mapped[Vendor | None] = relationship(
+        foreign_keys=[vendor_id], back_populates="payments"
+    )
+    bank_account: Mapped[BankAccount | None] = relationship(
+        foreign_keys=[bank_account_id], back_populates="payments"
+    )
+    bank_transaction: Mapped[BankTransaction | None] = relationship(
+        foreign_keys=[bank_transaction_id], back_populates="payments"
+    )
+
+    __table_args__ = (Index("ix_payments_company_date", "company_id", "payment_date"),)

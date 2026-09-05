@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -32,6 +32,8 @@ class LedgerAccount(UUIDPkMixin, TimestampMixin, Base):
     )  # ASSET / LIABILITY / EQUITY / REVENUE / EXPENSE
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
+    __table_args__ = (Index("ix_ledger_accounts_company_code", "company_id", "account_code"),)
+
 
 class JournalEntry(UUIDPkMixin, TimestampMixin, Base):
     """A journal entry posting to ledger accounts."""
@@ -53,6 +55,23 @@ class JournalEntry(UUIDPkMixin, TimestampMixin, Base):
         back_populates="journal_entry", cascade="all, delete-orphan"
     )
     bank_transactions: Mapped[list[BankTransaction]] = relationship(back_populates="journal_entry")
+
+    __table_args__ = (Index("ix_journal_entries_company_date", "company_id", "entry_date"),)
+
+    @property
+    def total_debit(self) -> Decimal:
+        """Sum of all debits across lines."""
+        return sum((line.debit for line in self.lines), Decimal("0"))
+
+    @property
+    def total_credit(self) -> Decimal:
+        """Sum of all credits across lines."""
+        return sum((line.credit for line in self.lines), Decimal("0"))
+
+    @property
+    def is_balanced(self) -> bool:
+        """True when debits equal credits (fundamental accounting equation)."""
+        return self.total_debit == self.total_credit
 
 
 class JournalEntryLine(UUIDPkMixin, TimestampMixin, Base):

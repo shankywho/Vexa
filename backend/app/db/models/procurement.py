@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from app.db.models.banking import Payment
     from app.db.models.counterparty import Vendor
     from app.db.models.procurement import PurchaseOrderLine
+    from app.db.models.tenancy import User
 
 
 class Invoice(UUIDPkMixin, TimestampMixin, Base):
@@ -54,6 +55,9 @@ class Invoice(UUIDPkMixin, TimestampMixin, Base):
         back_populates="invoice", cascade="all, delete-orphan"
     )
     payments: Mapped[list[Payment]] = relationship(back_populates="invoice")
+    po: Mapped[PurchaseOrder | None] = relationship(foreign_keys=[po_id], back_populates="invoices")
+
+    __table_args__ = (Index("ix_invoices_company_date", "company_id", "invoice_date"),)
 
 
 class InvoiceLine(UUIDPkMixin, TimestampMixin, Base):
@@ -91,10 +95,14 @@ class PurchaseOrder(UUIDPkMixin, TimestampMixin, Base):
         Enum(DocumentStatus, name="document_status"), default=DocumentStatus.OPEN, nullable=False
     )
 
+    vendor: Mapped[Vendor] = relationship(back_populates="purchase_orders")
     lines: Mapped[list[PurchaseOrderLine]] = relationship(
         back_populates="purchase_order", cascade="all, delete-orphan"
     )
     receipts: Mapped[list[GoodsReceipt]] = relationship(back_populates="purchase_order")
+    invoices: Mapped[list[Invoice]] = relationship(back_populates="po")
+
+    __table_args__ = (Index("ix_purchase_orders_company_date", "company_id", "order_date"),)
 
 
 class PurchaseOrderLine(UUIDPkMixin, TimestampMixin, Base):
@@ -112,6 +120,7 @@ class PurchaseOrderLine(UUIDPkMixin, TimestampMixin, Base):
 
     purchase_order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
     invoice_lines: Mapped[list[InvoiceLine]] = relationship(back_populates="po_line")
+    receipt_lines: Mapped[list[GoodsReceiptLine]] = relationship(back_populates="po_line")
 
 
 class GoodsReceipt(UUIDPkMixin, TimestampMixin, Base):
@@ -136,6 +145,8 @@ class GoodsReceipt(UUIDPkMixin, TimestampMixin, Base):
         back_populates="goods_receipt", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (Index("ix_goods_receipts_company_date", "company_id", "receipt_date"),)
+
 
 class GoodsReceiptLine(UUIDPkMixin, TimestampMixin, Base):
     """A line item on a goods receipt."""
@@ -150,6 +161,7 @@ class GoodsReceiptLine(UUIDPkMixin, TimestampMixin, Base):
     quantity_received: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
 
     goods_receipt: Mapped[GoodsReceipt] = relationship(back_populates="lines")
+    po_line: Mapped[PurchaseOrderLine | None] = relationship(back_populates="receipt_lines")
 
 
 class Contract(UUIDPkMixin, TimestampMixin, Base):
@@ -169,6 +181,10 @@ class Contract(UUIDPkMixin, TimestampMixin, Base):
         Enum(DocumentStatus, name="document_status"), default=DocumentStatus.OPEN, nullable=False
     )
 
+    vendor: Mapped[Vendor | None] = relationship(
+        foreign_keys=[counterparty_id], back_populates="contracts"
+    )
+
 
 class ExpenseReport(UUIDPkMixin, TimestampMixin, Base):
     """An employee expense report."""
@@ -186,3 +202,5 @@ class ExpenseReport(UUIDPkMixin, TimestampMixin, Base):
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus, name="document_status"), default=DocumentStatus.OPEN, nullable=False
     )
+
+    employee: Mapped[User | None] = relationship(foreign_keys=[employee_id])

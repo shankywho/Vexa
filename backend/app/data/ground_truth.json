@@ -1,0 +1,576 @@
+[
+  {
+    "scenario_id": "SCENARIO-001",
+    "scenario_type": "PAYMENT_FRAGMENTATION",
+    "title": "Critical Demo: Payment Fragmentation Anomaly",
+    "description": "Invoice of 14,50,000 paid via 14 separate payments of 1,00,000 within same settlement window",
+    "expected_action": "ESCALATE",
+    "financial_impact": "1450000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "dc23a0eb-6091-49fe-aff0-fa97537a097c",
+    "primary_record_number": "INV-DEMO-001",
+    "related_record_ids": [
+      "8eafbd72-2b77-471d-ba31-e21f22bf8000",
+      "0496dca7-cc47-474b-8f52-e5502e0d9987",
+      "8ccdc19c-c8d5-4908-b5a4-1ad07d9c5ba5",
+      "c95c2ef6-01b0-4143-bfb2-c7563debf8ba",
+      "86eea9d6-1f51-4b51-a7a0-71e4fde317d1",
+      "89501ad8-c072-4024-89d4-d26a2130d74b",
+      "a3ee10c7-d4ac-4ecd-b1ae-208847788f6e",
+      "afc7ea27-21ec-4ac0-9908-474d2294d229",
+      "2699f10d-5674-419a-b0e1-0355b57d4a8c",
+      "74959d41-e369-4416-95dc-5c1436cbda09",
+      "6a1dd67c-1620-4790-b3a1-3501d2b7672e",
+      "190fc6ea-10bc-4042-9aa7-c057eca57536",
+      "bb313122-90d1-4521-93e6-9462ca7c9fd5",
+      "0c1a7721-3dea-4377-af4d-085cd0c67d38"
+    ],
+    "expected_root_cause": "payment fragmentation anomaly"
+  },
+  {
+    "scenario_id": "SCENARIO-002",
+    "scenario_type": "PO_MISMATCH",
+    "title": "Second Demo: Quantity Mismatch across Invoice, PO, Receipt",
+    "description": "Invoice 1,000 units exceeds PO 800 units and Goods Receipt 760 units. Variance = 240 units x 1,600 = 3,84,000",
+    "expected_action": "STAGE",
+    "financial_impact": "384000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "8f8cf29d-3be8-4a4b-8b06-51d026cbc3a2",
+    "primary_record_number": "INV-DEMO-002",
+    "related_record_ids": [
+      "b0fa4aaa-a4db-447b-9ab2-2259a487e2a5",
+      "b7aabdd8-da0c-48ef-be4c-aa0b85912e22"
+    ],
+    "expected_root_cause": "Invoice quantity exceeds received quantity"
+  },
+  {
+    "scenario_id": "SCENARIO-003",
+    "scenario_type": "CLEAN_TRANSACTION",
+    "title": "Third Demo: Clean 6-Way Matched Transaction",
+    "description": "Invoice, PO, Receipt, Payment, Bank Tx, and GL all perfectly match",
+    "expected_action": "AUTO_RESOLVE",
+    "financial_impact": "0.00",
+    "human_review_required": false,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "88f3c9ef-377e-453e-bfa0-2e6ad7fee612",
+    "primary_record_number": "INV-CLEAN-001",
+    "related_record_ids": [
+      "768473f8-aaef-4139-9645-189e2cbb99e8",
+      "23f9203c-caf0-4b41-b1f7-e077841f1ebd",
+      "31c19a3c-a749-4f42-868d-96456999666c",
+      "322769a4-1560-4304-b94b-a1caece59105",
+      "2a3b5cb5-4546-40b1-beec-b9e47b79e3af"
+    ],
+    "expected_root_cause": "None (clean transaction)"
+  },
+  {
+    "scenario_id": "SCENARIO-004",
+    "scenario_type": "DUPLICATE_INVOICE",
+    "title": "Duplicate Invoice from Acme Supplies",
+    "description": "Duplicate invoice INV-DUP-REF-001 submitted twice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "85000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "5bd7cd43-e31e-4161-a70a-02a29421104e",
+    "primary_record_number": "INV-DUP-REF-001",
+    "related_record_ids": [
+      "1ecb1876-86fd-48ca-bbbc-8a4d0dfe0981"
+    ],
+    "expected_root_cause": "Vendor re-submitted identical invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-005",
+    "scenario_type": "DUPLICATE_INVOICE",
+    "title": "Duplicate Invoice from Acme Systems",
+    "description": "Duplicate invoice INV-DUP-REF-002 submitted twice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "85000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "7c91ca83-cc6d-4295-b244-6e92efeff37d",
+    "primary_record_number": "INV-DUP-REF-002",
+    "related_record_ids": [
+      "49883beb-6655-4a36-b1cf-89e15a7797b1"
+    ],
+    "expected_root_cause": "Vendor re-submitted identical invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-006",
+    "scenario_type": "DUPLICATE_INVOICE",
+    "title": "Duplicate Invoice from Acme Tech",
+    "description": "Duplicate invoice INV-DUP-REF-003 submitted twice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "85000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "763bfd9f-e58c-4a8f-a2ae-8b4b2c4c7507",
+    "primary_record_number": "INV-DUP-REF-003",
+    "related_record_ids": [
+      "19fce3e6-b3b4-4741-a980-c29ea522f360"
+    ],
+    "expected_root_cause": "Vendor re-submitted identical invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-007",
+    "scenario_type": "DUPLICATE_INVOICE",
+    "title": "Duplicate Invoice from Blue Industries",
+    "description": "Duplicate invoice INV-DUP-REF-004 submitted twice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "85000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "157241d8-4090-42d9-a81e-ace9f4adda4f",
+    "primary_record_number": "INV-DUP-REF-004",
+    "related_record_ids": [
+      "ac06ec13-2e10-4b69-9b09-b17717b6558d"
+    ],
+    "expected_root_cause": "Vendor re-submitted identical invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-008",
+    "scenario_type": "DUPLICATE_INVOICE",
+    "title": "Duplicate Invoice from Blue Partners",
+    "description": "Duplicate invoice INV-DUP-REF-005 submitted twice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "85000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "6d54a428-2b49-4c27-b70e-bd0f7af2e63e",
+    "primary_record_number": "INV-DUP-REF-005",
+    "related_record_ids": [
+      "928d00bf-b081-404c-82c2-02faf71834e1"
+    ],
+    "expected_root_cause": "Vendor re-submitted identical invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-009",
+    "scenario_type": "PO_MISMATCH",
+    "title": "PO Price Mismatch for INV-POMIS-001",
+    "description": "Invoice unit price 650.00 exceeds PO unit price 500",
+    "expected_action": "STAGE",
+    "financial_impact": "15000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "7988bccd-fafd-437e-b156-45091b62837f",
+    "primary_record_number": "INV-POMIS-001",
+    "related_record_ids": [
+      "a30f928a-39df-4350-b879-ca048d1c15e4"
+    ],
+    "expected_root_cause": "Unit price mismatch against approved PO"
+  },
+  {
+    "scenario_id": "SCENARIO-010",
+    "scenario_type": "PO_MISMATCH",
+    "title": "PO Price Mismatch for INV-POMIS-002",
+    "description": "Invoice unit price 750.00 exceeds PO unit price 600",
+    "expected_action": "STAGE",
+    "financial_impact": "15000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "95463f54-a6f8-43da-8b4f-ee207afb2db2",
+    "primary_record_number": "INV-POMIS-002",
+    "related_record_ids": [
+      "226660a5-f52f-4ad3-a447-0157c593a803"
+    ],
+    "expected_root_cause": "Unit price mismatch against approved PO"
+  },
+  {
+    "scenario_id": "SCENARIO-011",
+    "scenario_type": "PO_MISMATCH",
+    "title": "PO Price Mismatch for INV-POMIS-003",
+    "description": "Invoice unit price 850.00 exceeds PO unit price 700",
+    "expected_action": "STAGE",
+    "financial_impact": "15000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "c7dadc4a-fd98-433f-b561-4d459bc67911",
+    "primary_record_number": "INV-POMIS-003",
+    "related_record_ids": [
+      "e7fa24e1-6515-442f-bfe9-e3ac76f69bcd"
+    ],
+    "expected_root_cause": "Unit price mismatch against approved PO"
+  },
+  {
+    "scenario_id": "SCENARIO-012",
+    "scenario_type": "PO_MISMATCH",
+    "title": "PO Price Mismatch for INV-POMIS-004",
+    "description": "Invoice unit price 950.00 exceeds PO unit price 800",
+    "expected_action": "STAGE",
+    "financial_impact": "15000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "87f4d484-1be5-415a-8067-1a7abe351bcb",
+    "primary_record_number": "INV-POMIS-004",
+    "related_record_ids": [
+      "cb332085-765f-4f85-802f-4af3949c2ff1"
+    ],
+    "expected_root_cause": "Unit price mismatch against approved PO"
+  },
+  {
+    "scenario_id": "SCENARIO-013",
+    "scenario_type": "RECEIPT_MISMATCH",
+    "title": "Receipt Quantity Mismatch for INV-RCMIS-001",
+    "description": "Invoice billed 200 units but goods receipt confirmed 150 units",
+    "expected_action": "STAGE",
+    "financial_impact": "50000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "617ad038-a5e3-4657-9db6-53f38c437c2b",
+    "primary_record_number": "INV-RCMIS-001",
+    "related_record_ids": [
+      "d0d63a5f-024d-47a5-9177-586554065d68",
+      "a6dc636a-96dd-467f-a2e1-1d6a699272a7"
+    ],
+    "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
+  },
+  {
+    "scenario_id": "SCENARIO-014",
+    "scenario_type": "RECEIPT_MISMATCH",
+    "title": "Receipt Quantity Mismatch for INV-RCMIS-002",
+    "description": "Invoice billed 200 units but goods receipt confirmed 150 units",
+    "expected_action": "STAGE",
+    "financial_impact": "50000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "a5ef7ded-cf9a-40c7-9201-c9c562b4b261",
+    "primary_record_number": "INV-RCMIS-002",
+    "related_record_ids": [
+      "f5a6a146-496b-4fe2-a4b3-3bb0540f4e44",
+      "70e83310-4699-4b1e-8cbe-51642be32bae"
+    ],
+    "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
+  },
+  {
+    "scenario_id": "SCENARIO-015",
+    "scenario_type": "RECEIPT_MISMATCH",
+    "title": "Receipt Quantity Mismatch for INV-RCMIS-003",
+    "description": "Invoice billed 200 units but goods receipt confirmed 150 units",
+    "expected_action": "STAGE",
+    "financial_impact": "50000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "454863b9-f24f-42d2-a680-d1cd71ca0de8",
+    "primary_record_number": "INV-RCMIS-003",
+    "related_record_ids": [
+      "41749231-c15c-49b2-ba10-78e4040f312c",
+      "6e779547-6d88-4846-bcd9-9723d93a83a6"
+    ],
+    "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
+  },
+  {
+    "scenario_id": "SCENARIO-016",
+    "scenario_type": "DUPLICATE_PAYMENT",
+    "title": "Duplicate Payment for Invoice INV-DUPP-001",
+    "description": "Two identical payments of 1,20,000 executed for single invoice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "120000.00",
+    "human_review_required": true,
+    "primary_record_type": "PAYMENT",
+    "primary_record_id": "ce7a85ad-7087-4337-94ad-d49263206080",
+    "primary_record_number": "REF-DUPP-1-2",
+    "related_record_ids": [
+      "e0ce44e1-83c1-436a-89c0-146f77d47326",
+      "8374717a-fa6a-4fa4-99b3-cc438b195c68"
+    ],
+    "expected_root_cause": "Double payment executed against same invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-017",
+    "scenario_type": "DUPLICATE_PAYMENT",
+    "title": "Duplicate Payment for Invoice INV-DUPP-002",
+    "description": "Two identical payments of 1,20,000 executed for single invoice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "120000.00",
+    "human_review_required": true,
+    "primary_record_type": "PAYMENT",
+    "primary_record_id": "2b11f62a-9158-4198-b4f3-eac77d96f27e",
+    "primary_record_number": "REF-DUPP-2-2",
+    "related_record_ids": [
+      "9724751e-2dcf-439e-8e57-f3b661d7c7c5",
+      "aebb6d71-e929-4bce-a663-671f11f29d08"
+    ],
+    "expected_root_cause": "Double payment executed against same invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-018",
+    "scenario_type": "DUPLICATE_PAYMENT",
+    "title": "Duplicate Payment for Invoice INV-DUPP-003",
+    "description": "Two identical payments of 1,20,000 executed for single invoice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "120000.00",
+    "human_review_required": true,
+    "primary_record_type": "PAYMENT",
+    "primary_record_id": "1e2b0a14-86bb-4996-9963-9fc982aecb07",
+    "primary_record_number": "REF-DUPP-3-2",
+    "related_record_ids": [
+      "53fcda69-a0d9-405c-9d33-8783fd892b1c",
+      "994d5b07-86b2-4d77-8a72-b25960d77115"
+    ],
+    "expected_root_cause": "Double payment executed against same invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-019",
+    "scenario_type": "DUPLICATE_PAYMENT",
+    "title": "Duplicate Payment for Invoice INV-DUPP-004",
+    "description": "Two identical payments of 1,20,000 executed for single invoice",
+    "expected_action": "ESCALATE",
+    "financial_impact": "120000.00",
+    "human_review_required": true,
+    "primary_record_type": "PAYMENT",
+    "primary_record_id": "5e75636e-4d10-4869-8af2-8831932cda39",
+    "primary_record_number": "REF-DUPP-4-2",
+    "related_record_ids": [
+      "875f3ac0-c9a0-4e92-8220-98e3c2665970",
+      "a7baed96-3464-453b-b8a8-8f8bda592670"
+    ],
+    "expected_root_cause": "Double payment executed against same invoice"
+  },
+  {
+    "scenario_id": "SCENARIO-020",
+    "scenario_type": "UNUSUAL_VENDOR_ACTIVITY",
+    "title": "Unusual Volume Surge from Nova Supplies",
+    "description": "Invoice of 950000.00 is 10x higher than historical average",
+    "expected_action": "ESCALATE",
+    "financial_impact": "950000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "5702d451-be24-40a8-a133-e8761013dcd1",
+    "primary_record_number": "INV-UVA-001",
+    "related_record_ids": [
+      "8f21f299-677a-42d2-a3ae-56e902b9991e"
+    ],
+    "expected_root_cause": "Material volume surge beyond historical vendor profile"
+  },
+  {
+    "scenario_id": "SCENARIO-021",
+    "scenario_type": "UNUSUAL_VENDOR_ACTIVITY",
+    "title": "Unusual Volume Surge from Nova Systems",
+    "description": "Invoice of 950000.00 is 10x higher than historical average",
+    "expected_action": "ESCALATE",
+    "financial_impact": "950000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "c3c6569a-20c7-4fd8-a758-e29a6181054a",
+    "primary_record_number": "INV-UVA-002",
+    "related_record_ids": [
+      "c958715a-31b9-41fd-8a04-559aeb461472"
+    ],
+    "expected_root_cause": "Material volume surge beyond historical vendor profile"
+  },
+  {
+    "scenario_id": "SCENARIO-022",
+    "scenario_type": "UNUSUAL_VENDOR_ACTIVITY",
+    "title": "Unusual Volume Surge from Nova Tech",
+    "description": "Invoice of 950000.00 is 10x higher than historical average",
+    "expected_action": "ESCALATE",
+    "financial_impact": "950000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "f4586700-1e1f-4af2-adac-14ad465fd37b",
+    "primary_record_number": "INV-UVA-003",
+    "related_record_ids": [
+      "5a65c3d2-f2a3-42a7-90a7-e270e2a80fda"
+    ],
+    "expected_root_cause": "Material volume surge beyond historical vendor profile"
+  },
+  {
+    "scenario_id": "SCENARIO-023",
+    "scenario_type": "PAYMENT_FRAGMENTATION",
+    "title": "Payment Fragmentation (5,00,000 in 10 installments)",
+    "description": "Invoice of 5,00,000 paid via 10 consecutive daily payments of 50,000",
+    "expected_action": "ESCALATE",
+    "financial_impact": "500000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "f9c79914-e522-4f7e-91fe-5ca1e2d1a95b",
+    "primary_record_number": "INV-FRAG2-001",
+    "related_record_ids": [
+      "effec845-c80d-46bd-8591-2e5079c0d260",
+      "f62c7dfd-7320-4f66-bca8-16bd4437cf61",
+      "e662261b-573c-49a1-b68c-6cfabce066e0",
+      "69a87a37-eefb-4d9a-982d-0e924bb4dafd",
+      "473bc8b7-b6a3-41f7-9ca1-1f2df293dbab",
+      "1870f2f0-22e8-45da-aada-b6077711fbaf",
+      "d29d6e1f-92a1-492c-add6-54256d2afb39",
+      "951a127a-d2b2-4d8c-aac1-8394757a0f37",
+      "c661b402-ad5a-4020-84fa-36f96982091f",
+      "44d03c74-04ab-4e09-a318-38b9b1dfa700"
+    ],
+    "expected_root_cause": "Fragmented settlement pattern"
+  },
+  {
+    "scenario_id": "SCENARIO-024",
+    "scenario_type": "MISSING_DOCUMENT",
+    "title": "Invoice Missing Approved Purchase Order",
+    "description": "Invoice received and entered with no purchase order linkage",
+    "expected_action": "STAGE",
+    "financial_impact": "175000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "55c6446b-71fb-4e53-8d7c-1fba86d0ca9d",
+    "primary_record_number": "INV-NO-PO-001",
+    "related_record_ids": [],
+    "expected_root_cause": "Missing purchase order authorization"
+  },
+  {
+    "scenario_id": "SCENARIO-025",
+    "scenario_type": "MISSING_DOCUMENT",
+    "title": "Invoice Missing Goods Receipt Confirmation",
+    "description": "Supplier billed for hardware without warehouse goods receipt",
+    "expected_action": "STAGE",
+    "financial_impact": "210000.00",
+    "human_review_required": true,
+    "primary_record_type": "INVOICE",
+    "primary_record_id": "faa5c88e-8031-4f2f-995a-a4f3669309b4",
+    "primary_record_number": "INV-NO-GR-001",
+    "related_record_ids": [
+      "5cad69eb-0ed1-41f1-86fd-1796882e156b"
+    ],
+    "expected_root_cause": "Missing goods receipt delivery confirmation"
+  },
+  {
+    "scenario_id": "SCENARIO-026",
+    "scenario_type": "MISSING_DOCUMENT",
+    "title": "Unbilled Goods Receipt (GRNI Accrual Candidate)",
+    "description": "Goods received in January but invoice not received after 60 days",
+    "expected_action": "STAGE",
+    "financial_impact": "320000.00",
+    "human_review_required": true,
+    "primary_record_type": "GOODS_RECEIPT",
+    "primary_record_id": "737b6d32-855e-4519-8f49-96244dfefa42",
+    "primary_record_number": "GR-NO-INV-001",
+    "related_record_ids": [
+      "13b4b21c-2dc3-4407-87c3-a2a8171110ee"
+    ],
+    "expected_root_cause": "Unbilled receipt requires GRNI accrual"
+  },
+  {
+    "scenario_id": "SCENARIO-027",
+    "scenario_type": "GL_MAPPING_ERROR",
+    "title": "Software Infrastructure Mapped to Travel Expense",
+    "description": "AWS cloud bill debited to 5600 Travel instead of 5400 IT/Software",
+    "expected_action": "STAGE",
+    "financial_impact": "185000.00",
+    "human_review_required": true,
+    "primary_record_type": "JOURNAL_ENTRY",
+    "primary_record_id": "c4b45f93-2f73-4c0e-a9e3-e10caf91330a",
+    "primary_record_number": "JE-ERR-GL-001",
+    "related_record_ids": [],
+    "expected_root_cause": "Incorrect account classification in posting rule"
+  },
+  {
+    "scenario_id": "SCENARIO-028",
+    "scenario_type": "GL_MAPPING_ERROR",
+    "title": "Consumable Supplies Capitalized as Fixed Assets",
+    "description": "Stationery debited to 1400 Fixed Assets below threshold",
+    "expected_action": "STAGE",
+    "financial_impact": "45000.00",
+    "human_review_required": true,
+    "primary_record_type": "JOURNAL_ENTRY",
+    "primary_record_id": "5e3a3f7c-57a9-4667-aa59-eaf8b8a343ad",
+    "primary_record_number": "JE-ERR-GL-002",
+    "related_record_ids": [],
+    "expected_root_cause": "Capitalization policy violation"
+  },
+  {
+    "scenario_id": "SCENARIO-029",
+    "scenario_type": "GL_MAPPING_ERROR",
+    "title": "Vendor Credit Note Debited to Product Revenue",
+    "description": "Rebate booked against 4000 Revenue instead of 5000 COGS",
+    "expected_action": "STAGE",
+    "financial_impact": "65000.00",
+    "human_review_required": true,
+    "primary_record_type": "JOURNAL_ENTRY",
+    "primary_record_id": "e02506bb-8492-4c50-97c8-1947ae353cd7",
+    "primary_record_number": "JE-ERR-GL-003",
+    "related_record_ids": [],
+    "expected_root_cause": "Revenue account used for vendor transaction"
+  },
+  {
+    "scenario_id": "SCENARIO-030",
+    "scenario_type": "ACCRUAL_ANOMALY",
+    "title": "Substantial Over-Accrual of Utilities Expense",
+    "description": "Accrued 2,50,000 for electricity; actual invoice was 60,000",
+    "expected_action": "STAGE",
+    "financial_impact": "190000.00",
+    "human_review_required": true,
+    "primary_record_type": "JOURNAL_ENTRY",
+    "primary_record_id": "a71679b5-7d59-4ddf-be40-263769fb1e01",
+    "primary_record_number": "JE-ACCR-001",
+    "related_record_ids": [],
+    "expected_root_cause": "Accrual estimate variance > 300%"
+  },
+  {
+    "scenario_id": "SCENARIO-031",
+    "scenario_type": "ACCRUAL_ANOMALY",
+    "title": "Severe Under-Accrual for Patent Litigation Legal Fees",
+    "description": "Accrued 50,000; vendor submitted 3,00,000 for dispute counseling",
+    "expected_action": "STAGE",
+    "financial_impact": "250000.00",
+    "human_review_required": true,
+    "primary_record_type": "JOURNAL_ENTRY",
+    "primary_record_id": "3db83fbf-fd81-4afe-8c50-09a2cdbb92f0",
+    "primary_record_number": "JE-ACCR-002",
+    "related_record_ids": [],
+    "expected_root_cause": "Under-accrual due to uncommunicated litigation scope"
+  },
+  {
+    "scenario_id": "SCENARIO-032",
+    "scenario_type": "AR_MISMATCH",
+    "title": "Short Payment from Customer Apex Group",
+    "description": "Customer paid 350000.00 against 420000.00 (short 70k)",
+    "expected_action": "STAGE",
+    "financial_impact": "70000.00",
+    "human_review_required": true,
+    "primary_record_type": "BANK_TRANSACTION",
+    "primary_record_id": "8d23dbba-9eba-4acf-bb92-717c90a22a2a",
+    "primary_record_number": "CUST-REM-SHORT-01",
+    "related_record_ids": [],
+    "expected_root_cause": "Unexplained customer deduction / withholding"
+  },
+  {
+    "scenario_id": "SCENARIO-033",
+    "scenario_type": "AR_MISMATCH",
+    "title": "Short Payment from Customer Apex Ventures",
+    "description": "Customer paid 350000.00 against 420000.00 (short 70k)",
+    "expected_action": "STAGE",
+    "financial_impact": "70000.00",
+    "human_review_required": true,
+    "primary_record_type": "BANK_TRANSACTION",
+    "primary_record_id": "dc9eaddc-64ff-4c2f-b862-eb4afbd618af",
+    "primary_record_number": "CUST-REM-SHORT-02",
+    "related_record_ids": [],
+    "expected_root_cause": "Unexplained customer deduction / withholding"
+  },
+  {
+    "scenario_id": "SCENARIO-034",
+    "scenario_type": "CASH_ANOMALY",
+    "title": "Unexplained High-Value Wire Withdrawal",
+    "description": "Debit of 3,00,000 on statement with no internal payment voucher",
+    "expected_action": "ESCALATE",
+    "financial_impact": "300000.00",
+    "human_review_required": true,
+    "primary_record_type": "BANK_TRANSACTION",
+    "primary_record_id": "None",
+    "primary_record_number": "TXN-UNIDENT-WIRE-OUT-001",
+    "related_record_ids": [],
+    "expected_root_cause": "Direct bank debit without authorized payment voucher"
+  },
+  {
+    "scenario_id": "SCENARIO-035",
+    "scenario_type": "CASH_ANOMALY",
+    "title": "Unidentified Bank Credit Inflow",
+    "description": "Credit of 1,80,000 received with unknown remitter and no AR match",
+    "expected_action": "STAGE",
+    "financial_impact": "180000.00",
+    "human_review_required": true,
+    "primary_record_type": "BANK_TRANSACTION",
+    "primary_record_id": "None",
+    "primary_record_number": "TXN-UNIDENT-INFLOW-002",
+    "related_record_ids": [],
+    "expected_root_cause": "Unidentified deposit requiring suspense account allocation"
+  }
+]

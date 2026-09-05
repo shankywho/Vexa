@@ -6,7 +6,7 @@ Phase 1 covers the foundation endpoints only (companies, health, audit).
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -74,3 +74,29 @@ class HealthRead(BaseModel):
     environment: str
     database: str
     version: str
+
+
+class FxRateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    base_currency: str
+    quote_currency: str
+    rate: Decimal
+    effective_date: date
+    source: str | None
+
+
+class FxConversionResult(BaseModel):
+    """Result of a deterministic FX conversion (spec sections 6.1, 8, 16)."""
+
+    original_amount: Decimal
+    from_currency: str
+    to_currency: str
+    effective_date: date
+    rate: Decimal
+    converted_amount: Decimal
+    is_inverse: bool = False
+    is_identity: bool = False
+    source: str | None = None
+    status: str = "MATCHED"  # MATCHED or MISSING per spec section 8

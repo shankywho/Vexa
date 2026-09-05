@@ -31,9 +31,12 @@ async def demo_seed(seed: int | None = None) -> Company:
             print(f"Company 'NovaScale AI' already exists (id={existing.id}); skipping.")
             return existing
 
-        company = await seed_company(session, seed=seed_int)
+        company = await seed_company(session, seed=seed_int, include_transactions=True)
         await session.commit()
-        print(f"Seeded 'NovaScale AI' (id={company.id}) with deterministic seed {seed_int}.")
+        print(
+            f"Seeded 'NovaScale AI' (id={company.id}) with financial data & "
+            f"ground truth (seed={seed_int})."
+        )
         return company
 
 

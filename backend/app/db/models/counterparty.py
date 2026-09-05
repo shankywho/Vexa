@@ -12,7 +12,8 @@ from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.domain.enums import DocumentStatus
 
 if TYPE_CHECKING:
-    from app.db.models.procurement import Invoice
+    from app.db.models.banking import BankAccount, Payment
+    from app.db.models.procurement import Contract, Invoice, PurchaseOrder
 
 
 class Vendor(UUIDPkMixin, TimestampMixin, Base):
@@ -34,6 +35,12 @@ class Vendor(UUIDPkMixin, TimestampMixin, Base):
     risk_metadata: Mapped[dict | None] = mapped_column("risk_metadata_json", Text)
 
     invoices: Mapped[list[Invoice]] = relationship(back_populates="vendor")
+    purchase_orders: Mapped[list[PurchaseOrder]] = relationship(back_populates="vendor")
+    payments: Mapped[list[Payment]] = relationship(back_populates="vendor")
+    contracts: Mapped[list[Contract]] = relationship(
+        foreign_keys="[Contract.counterparty_id]", back_populates="vendor"
+    )
+    bank_account: Mapped[BankAccount | None] = relationship(foreign_keys=[bank_account_id])
 
 
 class Customer(UUIDPkMixin, TimestampMixin, Base):
