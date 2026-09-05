@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import agent_runs, audit, close_runs, companies, exceptions, health
+from app.api.routes import agent_runs, audit, benchmarks, close_runs, companies, exceptions, health
 from app.config import get_settings
 from app.db.session import dispose_engine
 
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(exceptions.router, prefix=settings.api_prefix)
     app.include_router(agent_runs.router, prefix=settings.api_prefix)
     app.include_router(audit.router, prefix=settings.api_prefix)
+    app.include_router(benchmarks.router, prefix=settings.api_prefix)
 
     return app
 
