@@ -121,10 +121,10 @@ class CFOBenchRunner:
                         db_exceptions_by_key[str(exc.source_payment_id)] = exc
                     if exc.source_po_id:
                         db_exceptions_by_key[str(exc.source_po_id)] = exc
-                    if exc.primary_record_id:
+                    if getattr(exc, "primary_record_id", None):
                         db_exceptions_by_key[str(exc.primary_record_id)] = exc
-                    if exc.primary_record_number:
-                        db_exceptions_by_key[exc.primary_record_number] = exc
+                    if getattr(exc, "primary_record_number", None):
+                        db_exceptions_by_key[str(exc.primary_record_number)] = exc
 
                 dossier_builder = EvidenceDossierBuilder(self.session, self.company_id)
                 ev_graph = await FinancialEvidenceGraphBuilder(
@@ -146,6 +146,8 @@ class CFOBenchRunner:
             "ACCRUAL_ANOMALY": ExceptionType.ACCRUAL_ANOMALY,
             "AR_MISMATCH": ExceptionType.AR_MISMATCH,
             "CASH_ANOMALY": ExceptionType.CASH_ANOMALY,
+            "VENDOR_BANK_CHANGE_ANOMALY": ExceptionType.VENDOR_BANK_CHANGE_ANOMALY,
+            "DATA_INGESTION_GAP": ExceptionType.DATA_INGESTION_GAP,
         }
 
         total = len(self.ground_truth)

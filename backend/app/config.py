@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     llm_base_url: str | None = Field(default=None, description="Base URL for external LLM calls")
     llm_timeout_seconds: float = Field(default=30.0, description="Timeout for external LLM calls")
 
+    # Investigation Agent Circuit Breaker
+    investigation_max_steps: int = Field(
+        default=15, description="Maximum agent steps before circuit breaker trips"
+    )
+    investigation_max_seconds: float = Field(
+        default=30.0, description="Maximum wall-clock seconds for an investigation"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

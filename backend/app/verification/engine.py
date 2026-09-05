@@ -126,6 +126,22 @@ class IndependentCalculationVerifier:
                         f"Journal entry total {recalculated_impact} differs from recorded impact {expected_impact}"
                     )
 
+        # Vendor bank account change anomaly
+        elif dossier.exception_type == ExceptionType.VENDOR_BANK_CHANGE_ANOMALY:
+            if dossier.payments:
+                recalculated_impact = dossier.payments[0].amount
+            elif dossier.bank_transactions:
+                recalculated_impact = dossier.bank_transactions[0].amount
+
+        # Data ingestion gap
+        elif dossier.exception_type == ExceptionType.DATA_INGESTION_GAP:
+            if dossier.bank_transactions:
+                recalculated_impact = dossier.bank_transactions[0].amount
+            elif dossier.journal_entries:
+                recalculated_impact = getattr(
+                    dossier.journal_entries[0], "total_debit", expected_impact
+                )
+
         variance_diff = abs(recalculated_impact - expected_impact)
         is_valid = len(errors) == 0 and variance_diff <= Decimal("0.01")
         return (is_valid, recalculated_impact, variance_diff, errors)
@@ -147,6 +163,8 @@ class EvidenceCompletenessVerifier:
         ExceptionType.ACCRUAL_ANOMALY: ["journal_entries"],
         ExceptionType.AR_MISMATCH: ["bank_transactions"],
         ExceptionType.UNUSUAL_VENDOR_ACTIVITY: ["journal_entries"],
+        ExceptionType.VENDOR_BANK_CHANGE_ANOMALY: ["payments"],
+        ExceptionType.DATA_INGESTION_GAP: [],
     }
 
     def verify_evidence(
@@ -229,6 +247,8 @@ class PolicyGateVerifier:
         policy: ClosePolicy,
         calculation_valid: bool,
         evidence_complete: bool,
+        account_balance: Decimal | None = None,
+        account_code: str | None = None,
     ) -> tuple[AutonomyLevel, list[str]]:
         """Evaluate corporate policy gates against the finding.
 
@@ -254,6 +274,12 @@ class PolicyGateVerifier:
         if (
             finding.recommendation.action == AutonomyAction.ESCALATE
             or finding.recommendation.should_escalate_to_cfo
+            or exception.type
+            in (ExceptionType.VENDOR_BANK_CHANGE_ANOMALY, ExceptionType.DATA_INGESTION_GAP)
+            or "vendor bank" in finding.root_cause_analysis.likely_cause.lower()
+            or "bank account change" in finding.root_cause_analysis.likely_cause.lower()
+            or "ingestion gap" in finding.root_cause_analysis.likely_cause.lower()
+            or "feed gap" in finding.root_cause_analysis.likely_cause.lower()
             or "fragment" in finding.root_cause_analysis.likely_cause.lower()
             or "litigation" in finding.root_cause_analysis.likely_cause.lower()
             or "withholding" in finding.root_cause_analysis.likely_cause.lower()
@@ -265,12 +291,33 @@ class PolicyGateVerifier:
         is_auto_recommendation = finding.recommendation.action == AutonomyAction.AUTO_RESOLVE
 
         if is_auto_recommendation:
-            # Policy 1: Materiality cap
-            if exception.financial_impact > policy.max_auto_resolution_amount:
+            # Policy 1: Materiality cap (with optional per-account override)
+            effective_cap = policy.max_auto_resolution_amount
+            if account_code and account_code in getattr(
+                policy, "account_materiality_thresholds", {}
+            ):
+                effective_cap = policy.account_materiality_thresholds[account_code]
+
+            if exception.financial_impact > effective_cap:
                 violations.append(
                     f"Financial impact {exception.financial_impact} exceeds max_auto_resolution_amount "
-                    f"threshold of {policy.max_auto_resolution_amount}. Human review required."
+                    f"threshold of {effective_cap}. Human review required."
                 )
+
+            # Policy 1b: Relative materiality (% of account balance)
+            rel_threshold = getattr(policy, "materiality_pct_of_account_balance", None)
+            if rel_threshold is not None and account_balance is not None:
+                abs_balance = abs(account_balance)
+                if abs_balance > Decimal("0"):
+                    variance_pct = (abs(exception.financial_impact) / abs_balance) * Decimal(
+                        "100.0"
+                    )
+                    if variance_pct > rel_threshold:
+                        violations.append(
+                            f"Variance of {exception.financial_impact} represents {variance_pct:.2f}% "
+                            f"of account balance ({account_balance}), exceeding relative materiality "
+                            f"threshold of {rel_threshold}%. Human review required."
+                        )
 
             # Policy 2: Calibrated confidence requirement
             if calibrated_confidence < policy.min_confidence:

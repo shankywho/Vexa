@@ -24,6 +24,7 @@ from app.db.models.exception import (
     ReversalAction,
 )
 from app.db.models.fx import FxRate
+from app.db.models.human_correction import HumanCorrection
 from app.db.models.ledger import JournalEntry, JournalEntryLine, LedgerAccount
 from app.db.models.procurement import (
     Contract,
@@ -58,6 +59,7 @@ __all__ = [
     "FxRate",
     "GoodsReceipt",
     "GoodsReceiptLine",
+    "HumanCorrection",
     "Invoice",
     "InvoiceLine",
     "JournalEntry",

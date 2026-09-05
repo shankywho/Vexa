@@ -40,6 +40,8 @@ class ClosePolicy:
     min_confidence: Decimal = Decimal("0.95")
     high_impact_requires_human: bool = True
     materiality_threshold: Decimal = Decimal("100000.00")
+    materiality_pct_of_account_balance: Decimal | None = Decimal("1.0")
+    account_materiality_thresholds: dict[str, Decimal] = field(default_factory=dict)
     blocking_exception_types: set[ExceptionType] = field(
         default_factory=lambda: {
             ExceptionType.PAYMENT_FRAGMENTATION,
@@ -47,6 +49,8 @@ class ClosePolicy:
             ExceptionType.DUPLICATE_PAYMENT,
             ExceptionType.CASH_ANOMALY,
             ExceptionType.BANK_GL_MISMATCH,
+            ExceptionType.VENDOR_BANK_CHANGE_ANOMALY,
+            ExceptionType.DATA_INGESTION_GAP,
         }
     )
     policy_version_id: str = "policy-v1"
@@ -57,6 +61,12 @@ class ClosePolicy:
             "min_confidence": str(self.min_confidence),
             "high_impact_requires_human": self.high_impact_requires_human,
             "materiality_threshold": str(self.materiality_threshold),
+            "materiality_pct_of_account_balance": str(self.materiality_pct_of_account_balance)
+            if self.materiality_pct_of_account_balance is not None
+            else None,
+            "account_materiality_thresholds": {
+                k: str(v) for k, v in self.account_materiality_thresholds.items()
+            },
             "blocking_exception_types": [t.value for t in self.blocking_exception_types],
             "policy_version_id": self.policy_version_id,
         }

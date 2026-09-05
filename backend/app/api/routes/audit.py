@@ -17,6 +17,7 @@ router = APIRouter(prefix="/audit-events", tags=["audit"])
 @router.get("", response_model=list[AuditEventRead])
 async def list_audit_events(
     event_type: AuditEventType | None = None,
+    control_id: str | None = None,
     limit: int = Query(default=100, le=1000),
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
@@ -24,5 +25,7 @@ async def list_audit_events(
 ) -> list[AuditEventRead]:
     """List tenant-scoped audit events, newest first."""
     service = AuditService(session, company_id=tenant.company_id)
-    events = await service.list(event_type=event_type, limit=limit, offset=offset)
+    events = await service.list(
+        event_type=event_type, control_id=control_id, limit=limit, offset=offset
+    )
     return [AuditEventRead.model_validate(e, from_attributes=True) for e in events]

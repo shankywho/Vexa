@@ -15,6 +15,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.controls import map_to_control_id
 from app.db.base import utcnow
 from app.db.models.audit import AgentPromptVersion, AuditEvent, PolicyVersion
 from app.domain.enums import AuditEventType
@@ -57,8 +58,21 @@ class AuditService:
         calibrated_confidence: Decimal | None = None,
         evidence_ids: list[str] | None = None,
         metadata_: dict | None = None,
+        control_id: str | None = None,
     ) -> AuditEvent:
         """Append a new audit event (never updated/deleted afterwards)."""
+        if control_id is None:
+            exc_type = None
+            task_type = None
+            if metadata_:
+                exc_type = metadata_.get("exception_type")
+                task_type = metadata_.get("task_type")
+            control_id = map_to_control_id(
+                exception_type=exc_type,
+                task_type=task_type,
+                event_type=event_type,
+            )
+
         event = AuditEvent(
             company_id=self.company_id,
             close_run_id=close_run_id,
@@ -79,6 +93,7 @@ class AuditService:
             calibrated_confidence=calibrated_confidence,
             evidence_ids=json.dumps(evidence_ids) if evidence_ids is not None else None,
             metadata_=json.dumps(metadata_, default=_json_serializable) if metadata_ else None,
+            control_id=control_id,
             created_at=utcnow(),
         )
         self.session.add(event)
@@ -100,6 +115,7 @@ class AuditService:
         currency: str | None = None,
         confidence: Decimal | None = None,
         calibrated_confidence: Decimal | None = None,
+        control_id: str | None = None,
     ) -> AuditEvent:
         """Convenience method for recording an event by entity and payload."""
         exception_id = entity_id if entity_type == "exception" else None
@@ -115,6 +131,7 @@ class AuditService:
             confidence=confidence,
             calibrated_confidence=calibrated_confidence,
             metadata_=payload,
+            control_id=control_id,
         )
 
     async def list(
@@ -122,6 +139,7 @@ class AuditService:
         *,
         close_run_id: uuid.UUID | None = None,
         event_type: AuditEventType | None = None,
+        control_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[AuditEvent]:
@@ -133,6 +151,8 @@ class AuditService:
             stmt = stmt.where(AuditEvent.close_run_id == close_run_id)
         if event_type is not None:
             stmt = stmt.where(AuditEvent.event_type == event_type)
+        if control_id is not None:
+            stmt = stmt.where(AuditEvent.control_id == control_id)
         stmt = stmt.limit(limit).offset(offset)
         result = await self.session.scalars(stmt)
         return list(result.all())

@@ -55,6 +55,8 @@ from app.domain.enums import (
 )
 from app.reconciliation.config import ReconciliationConfig
 from app.reconciliation.rules import (
+    detect_data_ingestion_gaps,
+    detect_vendor_bank_change_anomalies,
     evaluate_three_way_match,
     match_bank_tx_to_payments,
     match_payments_to_invoice,
@@ -471,6 +473,23 @@ class DeterministicReconciliationEngine:
                 )
 
         # -------------------------------------------------------------
+        # PASS 9: Vendor Bank Account Change Anomaly Detection
+        # -------------------------------------------------------------
+        vendors: Sequence[Vendor] = data["vendors"]
+        bank_change_results = detect_vendor_bank_change_anomalies(vendors, payments, self.config)
+        results.extend(bank_change_results)
+
+        # -------------------------------------------------------------
+        # PASS 10: Data Ingestion Gap Detection
+        # -------------------------------------------------------------
+        gap_results = detect_data_ingestion_gaps(
+            bank_txs,
+            journal_entries,
+            self.config,
+        )
+        results.extend(gap_results)
+
+        # -------------------------------------------------------------
         # Aggregation & Summary
         # -------------------------------------------------------------
         total_matched = sum(1 for r in results if r.status == ReconciliationStatus.MATCHED)
@@ -591,9 +610,18 @@ class DeterministicReconciliationEngine:
                     close_run_id=summary.close_run_id,
                     type=item.exception_type,
                     severity=(
-                        ExceptionSeverity.HIGH
-                        if item.financial_impact > Decimal("1000")
-                        else ExceptionSeverity.MEDIUM
+                        ExceptionSeverity.CRITICAL
+                        if item.exception_type == ExceptionType.VENDOR_BANK_CHANGE_ANOMALY
+                        and item.financial_impact >= self.config.vendor_bank_change_large_threshold
+                        else (
+                            ExceptionSeverity.CRITICAL
+                            if item.exception_type == ExceptionType.DATA_INGESTION_GAP
+                            else (
+                                ExceptionSeverity.HIGH
+                                if item.financial_impact > Decimal("1000")
+                                else ExceptionSeverity.MEDIUM
+                            )
+                        )
                     ),
                     status=ExceptionStatus.OPEN,
                     financial_impact=item.financial_impact,
@@ -601,13 +629,30 @@ class DeterministicReconciliationEngine:
                     confidence=item.confidence,
                     root_cause=item.deterministic_reason,
                     recommended_action="Review transaction evidence and resolve discrepancy.",
-                    autonomy_level=AutonomyLevel.OBSERVE,
+                    autonomy_level=(
+                        AutonomyLevel.RECOMMEND
+                        if item.exception_type
+                        in (
+                            ExceptionType.VENDOR_BANK_CHANGE_ANOMALY,
+                            ExceptionType.DATA_INGESTION_GAP,
+                        )
+                        else AutonomyLevel.OBSERVE
+                    ),
                     source_invoice_id=source_inv_id,
                     source_po_id=source_po_id,
                     source_receipt_id=source_receipt_id,
                     source_payment_id=source_pmt_id,
                     source_bank_txn_id=source_bt_id,
                     source_journal_entry_id=source_je_id,
+                    metadata_={
+                        "reconciliation_type": (
+                            item.reconciliation_type.value
+                            if hasattr(item.reconciliation_type, "value")
+                            else str(item.reconciliation_type)
+                        ),
+                        "amounts": {k: str(v) for k, v in item.amounts.items()},
+                        "deterministic_reason": item.deterministic_reason,
+                    },
                 )
                 self.session.add(exc_rec)
                 await self.session.flush()

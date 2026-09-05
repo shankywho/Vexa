@@ -202,6 +202,42 @@ class FinancialEvidenceGraphBuilder:
                             provenance=self._provenance("vendors", v.id),
                         )
                     )
+            if v.previous_bank_account_id:
+                prev_ba_node_id = EvidenceNode.make_id(
+                    NodeType.BANK_ACCOUNT, v.previous_bank_account_id
+                )
+                if graph.has_node(prev_ba_node_id):
+                    graph.add_edge(
+                        EvidenceEdge(
+                            id=EvidenceEdge.make_id(
+                                v_id, EdgeType.VENDOR_PREVIOUS_BANK_ACCOUNT, prev_ba_node_id
+                            ),
+                            source_id=v_id,
+                            target_id=prev_ba_node_id,
+                            edge_type=EdgeType.VENDOR_PREVIOUS_BANK_ACCOUNT,
+                            company_id=self._cid_str,
+                            provenance=self._provenance("vendors", v.id),
+                        )
+                    )
+                    if v.bank_account_id:
+                        curr_ba_node_id = EvidenceNode.make_id(
+                            NodeType.BANK_ACCOUNT, v.bank_account_id
+                        )
+                        if graph.has_node(curr_ba_node_id):
+                            graph.add_edge(
+                                EvidenceEdge(
+                                    id=EvidenceEdge.make_id(
+                                        prev_ba_node_id,
+                                        EdgeType.ACCOUNT_CHANGED_TO,
+                                        curr_ba_node_id,
+                                    ),
+                                    source_id=prev_ba_node_id,
+                                    target_id=curr_ba_node_id,
+                                    edge_type=EdgeType.ACCOUNT_CHANGED_TO,
+                                    company_id=self._cid_str,
+                                    provenance=self._provenance("vendors", v.id),
+                                )
+                            )
 
         # 5. Customers
         customers = (

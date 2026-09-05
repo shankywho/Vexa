@@ -160,6 +160,8 @@ class InvestigationRequest(BaseModel):
     model: str = "vexa-cfo-analyst-v1"
     timeout_seconds: float = 10.0
     max_retries: int = 2
+    max_agent_steps: int = 15
+    max_investigation_seconds: float = 30.0
 
 
 class InvestigationFinding(BaseModel):

@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.action.correction_service import HumanCorrectionService
 from app.action.service import ActionService
 from app.api.dependencies import TenantContext, get_tenant_context
 from app.db.models.exception import ExceptionRecord
@@ -19,6 +20,7 @@ from app.domain.schemas import (
     EscalateRequest,
     ExceptionEvidenceRead,
     ExceptionRead,
+    HumanCorrectionStatsRead,
     HumanReviewRequest,
     ReverseActionRequest,
 )
@@ -27,6 +29,16 @@ from app.investigation.dossier_builder import EvidenceDossierBuilder
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/exceptions", tags=["exceptions"])
+
+
+@router.get("/corrections/stats", response_model=HumanCorrectionStatsRead)
+async def get_correction_stats(
+    session: AsyncSession = Depends(get_session),
+    tenant: TenantContext = Depends(get_tenant_context),
+) -> HumanCorrectionStatsRead:
+    """Retrieve human correction and override statistics for policy tuning."""
+    service = HumanCorrectionService(session, company_id=tenant.company_id)
+    return await service.get_override_statistics()
 
 
 @router.get("/{id}", response_model=ExceptionRead)

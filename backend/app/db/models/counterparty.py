@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -32,6 +33,12 @@ class Vendor(UUIDPkMixin, TimestampMixin, Base):
     bank_account_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("bank_accounts.id"), nullable=True
     )
+    previous_bank_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("bank_accounts.id"), nullable=True
+    )
+    bank_account_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     risk_metadata: Mapped[dict | None] = mapped_column("risk_metadata_json", Text)
 
     invoices: Mapped[list[Invoice]] = relationship(back_populates="vendor")
@@ -41,6 +48,9 @@ class Vendor(UUIDPkMixin, TimestampMixin, Base):
         foreign_keys="[Contract.counterparty_id]", back_populates="vendor"
     )
     bank_account: Mapped[BankAccount | None] = relationship(foreign_keys=[bank_account_id])
+    previous_bank_account: Mapped[BankAccount | None] = relationship(
+        foreign_keys=[previous_bank_account_id]
+    )
 
 
 class Customer(UUIDPkMixin, TimestampMixin, Base):

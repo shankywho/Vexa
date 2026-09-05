@@ -6,6 +6,7 @@ verification, autonomy) is a later phase.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -76,6 +77,25 @@ class ExceptionRecord(UUIDPkMixin, TimestampMixin, Base):
     source_journal_entry_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("journal_entries.id")
     )
+    metadata_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+
+    @property
+    def metadata_(self) -> dict | None:
+        if not self.metadata_json:
+            return None
+        try:
+            return json.loads(self.metadata_json)
+        except Exception:
+            return None
+
+    @metadata_.setter
+    def metadata_(self, value: dict | str | None) -> None:
+        if value is None:
+            self.metadata_json = None
+        elif isinstance(value, str):
+            self.metadata_json = value
+        else:
+            self.metadata_json = json.dumps(value, default=str)
 
     evidence: Mapped[list[ExceptionEvidence]] = relationship(
         back_populates="exception_record", cascade="all, delete-orphan"

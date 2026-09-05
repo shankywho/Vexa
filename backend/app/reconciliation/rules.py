@@ -7,10 +7,14 @@ Explainable structured outputs with explicit tolerance tracking.
 
 from __future__ import annotations
 
-from datetime import date
+import re
+import uuid
+from collections.abc import Sequence
+from datetime import date, timedelta
 from decimal import Decimal
 
 from app.db.models.banking import BankTransaction, Payment
+from app.db.models.counterparty import Vendor
 from app.db.models.ledger import JournalEntry
 from app.db.models.procurement import GoodsReceipt, Invoice, PurchaseOrder
 from app.domain.enums import ExceptionType, ReconciliationStatus
@@ -932,3 +936,297 @@ def review_accrual_entry(
             )
 
     return None
+
+
+def detect_vendor_bank_change_anomalies(
+    vendors: Sequence[Vendor],
+    payments: Sequence[Payment],
+    config: ReconciliationConfig,
+) -> list[ReconciliationItemResult]:
+    """Detect payments made shortly after a vendor's bank account change.
+
+    A vendor bank account change shortly before a large payment is a classic fraud vector.
+    Triggers if:
+    - Vendor has both bank_account_id and previous_bank_account_id (or bank_account_changed_at set).
+    - Payment is made within config.vendor_bank_change_window_days of the change, OR
+    - Payment is routed to a new/modified account different from the vendor's previous account.
+    """
+    results: list[ReconciliationItemResult] = []
+    vendors_by_id = {v.id: v for v in vendors}
+
+    for pmt in payments:
+        if not pmt.vendor_id:
+            continue
+        vendor = vendors_by_id.get(pmt.vendor_id)
+        if not vendor:
+            continue
+
+        has_bank_change = (
+            vendor.previous_bank_account_id is not None
+            and vendor.bank_account_id is not None
+            and vendor.previous_bank_account_id != vendor.bank_account_id
+        ) or (vendor.bank_account_changed_at is not None)
+
+        if not has_bank_change:
+            continue
+
+        is_anomaly = False
+        reason = ""
+
+        if vendor.bank_account_changed_at:
+            change_date = (
+                vendor.bank_account_changed_at.date()
+                if hasattr(vendor.bank_account_changed_at, "date")
+                else vendor.bank_account_changed_at
+            )
+            days_diff = abs((pmt.payment_date - change_date).days)
+            if days_diff <= config.vendor_bank_change_window_days:
+                is_anomaly = True
+                reason = (
+                    f"Vendor Bank Account Change Anomaly: Payment of {pmt.amount} {pmt.currency} "
+                    f"issued to vendor '{vendor.name}' only {days_diff} day(s) after vendor's bank account "
+                    f"was modified (window limit: {config.vendor_bank_change_window_days} days)."
+                )
+
+        if not is_anomaly and vendor.previous_bank_account_id and pmt.bank_account_id:
+            if (
+                pmt.bank_account_id == vendor.bank_account_id
+                and pmt.bank_account_id != vendor.previous_bank_account_id
+            ):
+                is_anomaly = True
+                reason = (
+                    f"Vendor Bank Account Change Anomaly: Payment of {pmt.amount} {pmt.currency} "
+                    f"routed to newly changed bank account for vendor '{vendor.name}' instead of established account."
+                )
+
+        if is_anomaly:
+            matched = [
+                MatchedRecordReference(
+                    record_type="VENDOR",
+                    record_id=vendor.id,
+                    record_number=vendor.name,
+                    role="COUNTERPARTY",
+                )
+            ]
+            if vendor.previous_bank_account_id:
+                matched.append(
+                    MatchedRecordReference(
+                        record_type="BANK_ACCOUNT",
+                        record_id=vendor.previous_bank_account_id,
+                        record_number="PREVIOUS_ACCOUNT",
+                        role="PREVIOUS_ACCOUNT",
+                    )
+                )
+            if vendor.bank_account_id:
+                matched.append(
+                    MatchedRecordReference(
+                        record_type="BANK_ACCOUNT",
+                        record_id=vendor.bank_account_id,
+                        record_number="NEW_ACCOUNT",
+                        role="NEW_ACCOUNT",
+                    )
+                )
+
+            evidence_ids = [vendor.id]
+            if vendor.previous_bank_account_id:
+                evidence_ids.append(vendor.previous_bank_account_id)
+            if vendor.bank_account_id:
+                evidence_ids.append(vendor.bank_account_id)
+
+            results.append(
+                ReconciliationItemResult(
+                    company_id=pmt.company_id,
+                    reconciliation_type=ReconciliationType.VENDOR_BANK_CHANGE,
+                    status=ReconciliationStatus.MISMATCH,
+                    confidence=Decimal("1.0000"),
+                    financial_impact=pmt.amount,
+                    source_record_type="PAYMENT",
+                    source_record_id=pmt.id,
+                    source_record_number=str(pmt.beneficiary_reference or pmt.id),
+                    matched_records=matched,
+                    evidence_ids=evidence_ids,
+                    amounts={"payment_amount": pmt.amount},
+                    currencies={"currency": pmt.currency, "base": pmt.currency},
+                    deterministic_reason=reason,
+                    exception_type=ExceptionType.VENDOR_BANK_CHANGE_ANOMALY,
+                )
+            )
+
+    return results
+
+
+def detect_data_ingestion_gaps(
+    bank_transactions: Sequence[BankTransaction],
+    journal_entries: Sequence[JournalEntry],
+    config: ReconciliationConfig,
+    period_start: date | None = None,
+    period_end: date | None = None,
+) -> list[ReconciliationItemResult]:
+    """Detect ingestion gaps in bank feeds or general ledger sequence.
+
+    Identifies:
+    1. Multi-business-day gaps in bank account feeds during an active period (excluding weekends).
+    2. Missing sequential journal entry numbers (GL sequence gaps e.g. JE-2026-0001 -> JE-2026-0003).
+    3. Explicit ingestion feed gap indicators in transaction/journal references.
+    """
+    results: list[ReconciliationItemResult] = []
+
+    # 1. Bank Feed Multi-Day Gap Check
+    txs_by_account: dict[uuid.UUID, list[BankTransaction]] = {}
+    for bt in bank_transactions:
+        txs_by_account.setdefault(bt.bank_account_id, []).append(bt)
+
+    for ba_id, bts in txs_by_account.items():
+        # Check explicit feed gap in references first
+        for bt in bts:
+            ref_upper = (bt.reference or "").upper()
+            if (
+                "FEED_GAP" in ref_upper
+                or "INGESTION_GAP" in ref_upper
+                or "MISSING_FEED" in ref_upper
+                or "GAP-BANK" in ref_upper
+            ):
+                results.append(
+                    ReconciliationItemResult(
+                        company_id=bt.company_id,
+                        reconciliation_type=ReconciliationType.DATA_INGESTION_GAP,
+                        status=ReconciliationStatus.MISSING,
+                        confidence=Decimal("1.0000"),
+                        financial_impact=bt.amount,
+                        source_record_type="BANK_TRANSACTION",
+                        source_record_id=bt.id,
+                        source_record_number=bt.reference,
+                        matched_records=[
+                            MatchedRecordReference(
+                                record_type="BANK_ACCOUNT",
+                                record_id=ba_id,
+                                record_number="BANK_FEED",
+                            )
+                        ],
+                        amounts={"transaction_amount": bt.amount},
+                        currencies={"currency": bt.currency, "base": bt.currency},
+                        deterministic_reason=(
+                            f"Data Ingestion Gap: Bank feed for account {ba_id} indicates "
+                            f"missing daily feed or transmission drop (Ref: {bt.reference})."
+                        ),
+                        exception_type=ExceptionType.DATA_INGESTION_GAP,
+                    )
+                )
+
+        sorted_bts = sorted(bts, key=lambda x: x.transaction_date)
+        if len(sorted_bts) >= 2:
+            for i in range(len(sorted_bts) - 1):
+                d1 = sorted_bts[i].transaction_date
+                d2 = sorted_bts[i + 1].transaction_date
+                if period_start and d2 < period_start:
+                    continue
+                if period_end and d1 > period_end:
+                    continue
+
+                business_days = 0
+                cur = d1 + timedelta(days=1)
+                while cur < d2:
+                    if cur.weekday() < 5:
+                        business_days += 1
+                    cur += timedelta(days=1)
+
+                if business_days >= 5:
+                    curr_bt = sorted_bts[i + 1]
+                    results.append(
+                        ReconciliationItemResult(
+                            company_id=curr_bt.company_id,
+                            reconciliation_type=ReconciliationType.DATA_INGESTION_GAP,
+                            status=ReconciliationStatus.MISSING,
+                            confidence=Decimal("1.0000"),
+                            financial_impact=Decimal("0.00"),
+                            source_record_type="BANK_TRANSACTION",
+                            source_record_id=curr_bt.id,
+                            source_record_number=curr_bt.reference,
+                            matched_records=[
+                                MatchedRecordReference(
+                                    record_type="BANK_ACCOUNT",
+                                    record_id=ba_id,
+                                    record_number="BANK_FEED",
+                                )
+                            ],
+                            deterministic_reason=(
+                                f"Data Ingestion Gap: Detected unexplained {business_days}-business-day gap "
+                                f"in bank statement feed between {d1} and {d2} for account {ba_id}."
+                            ),
+                            exception_type=ExceptionType.DATA_INGESTION_GAP,
+                        )
+                    )
+
+    # 2. GL Sequence Gap Check
+    pattern = re.compile(r"^([A-Za-z0-9_\-]+[_-])(\d+)$")
+    je_by_prefix: dict[str, list[tuple[int, JournalEntry]]] = {}
+
+    for je in journal_entries:
+        ref = je.reference or ""
+        if (
+            "FEED_GAP" in ref.upper()
+            or "INGESTION_GAP" in ref.upper()
+            or "MISSING_JE" in ref.upper()
+            or "GAP-GL" in ref.upper()
+        ):
+            results.append(
+                ReconciliationItemResult(
+                    company_id=je.company_id,
+                    reconciliation_type=ReconciliationType.DATA_INGESTION_GAP,
+                    status=ReconciliationStatus.MISSING,
+                    confidence=Decimal("1.0000"),
+                    financial_impact=je.total_debit,
+                    source_record_type="JOURNAL_ENTRY",
+                    source_record_id=je.id,
+                    source_record_number=je.reference,
+                    amounts={"entry_total": je.total_debit},
+                    deterministic_reason=(
+                        f"Data Ingestion Gap: Missing journal entry sequence or dropped batch "
+                        f"detected in general ledger feed for {je.reference}."
+                    ),
+                    exception_type=ExceptionType.DATA_INGESTION_GAP,
+                )
+            )
+        match = pattern.match(ref)
+        if match:
+            prefix = match.group(1)
+            num = int(match.group(2))
+            je_by_prefix.setdefault(prefix, []).append((num, je))
+
+    for prefix, entries in je_by_prefix.items():
+        sorted_entries = sorted(entries, key=lambda x: x[0])
+        for i in range(len(sorted_entries) - 1):
+            curr_num, curr_je = sorted_entries[i]
+            next_num, next_je = sorted_entries[i + 1]
+            if next_num > curr_num + 1 and (next_num - curr_num) < 100:
+                missing_range = (
+                    f"{prefix}{curr_num + 1}"
+                    if next_num == curr_num + 2
+                    else f"{prefix}{curr_num + 1} to {prefix}{next_num - 1}"
+                )
+                results.append(
+                    ReconciliationItemResult(
+                        company_id=next_je.company_id,
+                        reconciliation_type=ReconciliationType.DATA_INGESTION_GAP,
+                        status=ReconciliationStatus.MISSING,
+                        confidence=Decimal("1.0000"),
+                        financial_impact=Decimal("0.00"),
+                        source_record_type="JOURNAL_ENTRY",
+                        source_record_id=next_je.id,
+                        source_record_number=next_je.reference,
+                        matched_records=[
+                            MatchedRecordReference(
+                                record_type="JOURNAL_ENTRY",
+                                record_id=curr_je.id,
+                                record_number=curr_je.reference,
+                            )
+                        ],
+                        deterministic_reason=(
+                            f"Data Ingestion Gap: Discontinuity in journal entry sequence numbering. "
+                            f"Missing sequence [{missing_range}] between {curr_je.reference} and {next_je.reference}."
+                        ),
+                        exception_type=ExceptionType.DATA_INGESTION_GAP,
+                    )
+                )
+
+    return results

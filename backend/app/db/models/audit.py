@@ -80,6 +80,7 @@ class AuditEvent(UUIDPkMixin, Base):
     calibrated_confidence: Mapped[Decimal | None] = mapped_column(Numeric(6, 4))
     evidence_ids: Mapped[dict | None] = mapped_column("evidence_ids_json", Text)
     metadata_: Mapped[dict | None] = mapped_column("metadata_json", Text)  # tool calls, refs, etc.
+    control_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )

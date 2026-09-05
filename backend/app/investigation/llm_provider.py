@@ -83,6 +83,10 @@ class DeterministicInvestigationProvider(LLMProvider):
                 return self._analyze_ar_mismatch(request)
             case ExceptionType.CASH_ANOMALY:
                 return self._analyze_cash_anomaly(request)
+            case ExceptionType.VENDOR_BANK_CHANGE_ANOMALY:
+                return self._analyze_vendor_bank_change(request)
+            case ExceptionType.DATA_INGESTION_GAP:
+                return self._analyze_data_ingestion_gap(request)
             case _:
                 if impact == Decimal("0.00"):
                     return self._analyze_clean_transaction(request)
@@ -1400,6 +1404,192 @@ class DeterministicInvestigationProvider(LLMProvider):
             executive_summary=(
                 f"Cash anomaly on {p_id} ({dossier.currency} {dossier.financial_impact}): "
                 f"{likely_cause}."
+            ),
+            markdown_dossier=dossier.markdown_dossier,
+        )
+
+    def _analyze_vendor_bank_change(self, request: InvestigationRequest) -> InvestigationFinding:
+        dossier = request.dossier
+        p_rec = dossier.primary_record
+        p_id = p_rec.get("record_id", str(dossier.exception_id))
+        p_node_id = p_rec.get("node_id", f"payment:{p_id}")
+
+        facts = [
+            Fact(
+                statement=(
+                    f"Payment {p_id} of {dossier.currency} {dossier.financial_impact} "
+                    f"was issued shortly after a change to the vendor's master bank account."
+                ),
+                evidence_id=p_node_id,
+                record_type="payment",
+                record_id=p_id,
+            )
+        ]
+
+        likely_cause = "Vendor bank account change anomaly shortly before payment disbursement"
+        action = AutonomyAction.ESCALATE
+        role = Role.CFO
+        rec_action = (
+            "Escalate to CFO and Controller for mandatory out-of-band vendor verification "
+            "prior to payment settlement."
+        )
+
+        rc = RootCauseAnalysis(
+            primary_category="VENDOR_BANK_CHANGE_ANOMALY",
+            summary=(
+                f"High-risk payment disbursement of {dossier.currency} {dossier.financial_impact} "
+                f"routed to recently modified vendor bank account."
+            ),
+            likely_cause=likely_cause,
+            is_genuine_discrepancy=True,
+            is_timing_or_operational=False,
+        )
+
+        rec = InvestigationRecommendation(
+            action=action,
+            target_role=role,
+            recommended_action=rec_action,
+            should_block_close=True,
+            should_escalate_to_cfo=True,
+            controller_review_checklist=[
+                "Contact vendor via verified out-of-band contact number.",
+                "Confirm bank account change authorization and documentation.",
+                "Verify dual approval was obtained for vendor master modification.",
+            ],
+        )
+
+        answers = {
+            request.questions[
+                0
+            ]: f"Triggered due to vendor bank account change shortly before payment {p_id}.",
+            request.questions[1]: f"Payment {p_id} and vendor bank account change records.",
+            request.questions[
+                2
+            ]: "Genuine discrepancy: high-risk fraud indicator requiring CFO escalation.",
+            request.questions[3]: likely_cause,
+            request.questions[4]: "Out-of-band vendor verification confirmation.",
+            request.questions[5]: "Yes, high-risk payment anomalies block close until reviewed.",
+            request.questions[6]: "Yes, mandatory escalation to CFO.",
+            request.questions[7]: "Verify out-of-band vendor callback and dual sign-off.",
+        }
+
+        return InvestigationFinding(
+            exception_id=dossier.exception_id,
+            exception_type=dossier.exception_type,
+            finding_status=FindingStatus.ESCALATED,
+            facts=facts,
+            inferences=[
+                Inference(
+                    statement=(
+                        "Modifying banking coordinates immediately prior to disbursement is a standard fraud vector."
+                    ),
+                    supported_by_evidence_ids=[p_node_id],
+                    confidence=Decimal("0.9800"),
+                )
+            ],
+            uncertainties=[
+                "Whether vendor bank account update was authorized by vendor management."
+            ],
+            missing_evidence=["Out-of-band verbal authorization log from vendor CFO/treasury."],
+            root_cause_analysis=rc,
+            recommendation=rec,
+            raw_confidence=Decimal("0.9800"),
+            calibrated_confidence=Decimal("0.9500"),
+            answers_to_questions=answers,
+            executive_summary=(
+                f"Vendor bank account change anomaly on payment {p_id} "
+                f"({dossier.currency} {dossier.financial_impact}): {likely_cause}."
+            ),
+            markdown_dossier=dossier.markdown_dossier,
+        )
+
+    def _analyze_data_ingestion_gap(self, request: InvestigationRequest) -> InvestigationFinding:
+        dossier = request.dossier
+        p_rec = dossier.primary_record
+        p_id = p_rec.get("record_id", str(dossier.exception_id))
+        p_node_id = p_rec.get("node_id", f"record:{p_id}")
+
+        facts = [
+            Fact(
+                statement=(
+                    f"Data ingestion gap identified in financial ledger / statement feed "
+                    f"associated with record {p_id}."
+                ),
+                evidence_id=p_node_id,
+                record_type="journal_entry" if "je" in p_node_id.lower() else "bank_transaction",
+                record_id=p_id,
+            )
+        ]
+
+        likely_cause = "Data ingestion gap in bank statement feed or journal entry sequence"
+        action = AutonomyAction.ESCALATE
+        role = Role.CFO
+        rec_action = "Halt period close until data ingestion gap is investigated and missing feed batches are loaded."
+
+        rc = RootCauseAnalysis(
+            primary_category="DATA_INGESTION_GAP",
+            summary=(
+                "Unresolved data feed discontinuity or missing sequential records detected "
+                "impacting close completeness."
+            ),
+            likely_cause=likely_cause,
+            is_genuine_discrepancy=True,
+            is_timing_or_operational=False,
+        )
+
+        rec = InvestigationRecommendation(
+            action=action,
+            target_role=role,
+            recommended_action=rec_action,
+            should_block_close=True,
+            should_escalate_to_cfo=True,
+            controller_review_checklist=[
+                "Check ingestion pipeline logs for missing feeds or transmission drops.",
+                "Confirm sequential completeness of journal entries before close finalization.",
+                "Verify bank feed completeness across all active company accounts.",
+            ],
+        )
+
+        answers = {
+            request.questions[
+                0
+            ]: "Triggered due to data ingestion gap detected in feed or sequence.",
+            request.questions[1]: f"Statement feed and sequence records around {p_id}.",
+            request.questions[
+                2
+            ]: "Genuine discrepancy: missing transaction batches prevent close completeness.",
+            request.questions[3]: likely_cause,
+            request.questions[4]: "Missing statement days or sequential journal entries.",
+            request.questions[5]: "Yes, close cannot proceed with unverified data gaps.",
+            request.questions[6]: "Yes, escalate to CFO and accounting operations.",
+            request.questions[7]: "Review feed pipeline status and verify missing batch ingestion.",
+        }
+
+        return InvestigationFinding(
+            exception_id=dossier.exception_id,
+            exception_type=dossier.exception_type,
+            finding_status=FindingStatus.ESCALATED,
+            facts=facts,
+            inferences=[
+                Inference(
+                    statement=(
+                        "Incomplete data ingestion invalidates close completeness and trial balance integrity."
+                    ),
+                    supported_by_evidence_ids=[p_node_id],
+                    confidence=Decimal("0.9700"),
+                )
+            ],
+            uncertainties=["Whether missing records were posted in an external sub-ledger."],
+            missing_evidence=[
+                "Complete transmission log from banking partner or ERP ingestion queue."
+            ],
+            root_cause_analysis=rc,
+            recommendation=rec,
+            raw_confidence=Decimal("0.9700"),
+            calibrated_confidence=Decimal("0.9300"),
+            answers_to_questions=answers,
+            executive_summary=(
+                f"Data ingestion gap detected ({dossier.currency} {dossier.financial_impact}): {likely_cause}."
             ),
             markdown_dossier=dossier.markdown_dossier,
         )

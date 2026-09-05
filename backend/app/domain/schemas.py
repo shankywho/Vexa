@@ -77,6 +77,7 @@ class AuditEventRead(BaseModel):
     currency: str | None
     confidence: Decimal | None
     calibrated_confidence: Decimal | None
+    control_id: str | None = None
     created_at: datetime
 
 
@@ -189,6 +190,7 @@ class ExceptionRead(BaseModel):
     source_payment_id: uuid.UUID | None = None
     source_bank_txn_id: uuid.UUID | None = None
     source_journal_entry_id: uuid.UUID | None = None
+    metadata_: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -338,3 +340,36 @@ class DemoRecordRequest(BaseModel):
     title: str
     description: str | None = None
     is_golden: bool = False
+
+
+class HumanCorrectionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    company_id: uuid.UUID
+    exception_id: uuid.UUID
+    close_run_id: uuid.UUID | None = None
+    original_decision: str
+    human_decision: str
+    original_confidence: Decimal | None = None
+    calibrated_confidence: Decimal | None = None
+    exception_type: str | None = None
+    policy_version_id: str | None = None
+    reviewer_role: str | None = None
+    actor: str | None = None
+    reason: str | None = None
+    created_at: datetime
+
+
+class OverrideStatsCategory(BaseModel):
+    total_decisions: int
+    overrides: int
+    override_rate: float
+    tuning_candidate: bool = False
+
+
+class HumanCorrectionStatsRead(BaseModel):
+    overall: OverrideStatsCategory
+    by_exception_type: dict[str, OverrideStatsCategory]
+    by_confidence_bucket: dict[str, OverrideStatsCategory]
+    tuning_candidates: list[str]

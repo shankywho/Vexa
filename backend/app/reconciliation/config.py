@@ -49,3 +49,9 @@ class ReconciliationConfig(BaseModel):
 
     # Material accrual variance percentage threshold (25% variance vs actual)
     accrual_variance_pct_threshold: Decimal = Field(default=Decimal("0.25"))
+
+    # Vendor bank account change detection window in days
+    vendor_bank_change_window_days: int = Field(default=7)
+
+    # Threshold above which a vendor bank change anomaly is elevated to CRITICAL
+    vendor_bank_change_large_threshold: Decimal = Field(default=Decimal("10000.00"))

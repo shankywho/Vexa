@@ -8,6 +8,7 @@ from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.agent import ActionAgent
+from app.action.correction_service import HumanCorrectionService
 from app.action.reversal import ReversalEngine
 from app.action.tools import ActionTools
 from app.action.types import ActionResult, ActionType, ReversalResult
@@ -37,6 +38,7 @@ class ActionService:
         self.reversal_repo = ReversalActionRepository(session, company_id)
         self.exc_repo = ExceptionRepository(session, company_id)
         self.audit_service = AuditService(session, company_id)
+        self.correction_service = HumanCorrectionService(session, company_id)
 
     async def execute_for_verification(
         self,
@@ -108,6 +110,22 @@ class ActionService:
             payload=payload,
         )
 
+        # Record human correction / outcome
+        orig_dec = exc.autonomy_level.value if exc.autonomy_level else "STAGE"
+        await self.correction_service.record_correction(
+            exception_id=exception_id,
+            original_decision=orig_dec,
+            human_decision="APPROVED",
+            close_run_id=exc.close_run_id,
+            original_confidence=exc.confidence,
+            calibrated_confidence=exc.calibrated_confidence,
+            exception_type=exc.type.value if exc.type else "UNKNOWN",
+            policy_version_id="policy-v1",
+            reviewer_role="controller",
+            actor=actor,
+            reason=notes or "Approved by human reviewer.",
+        )
+
         if exc.close_run_id:
             try:
                 from app.streaming.bus import agent_event_bus
@@ -172,6 +190,22 @@ class ActionService:
             entity_type="exception",
             entity_id=exception_id,
             payload=payload,
+        )
+
+        # Record human correction / outcome
+        orig_dec = exc.autonomy_level.value if exc.autonomy_level else "STAGE"
+        await self.correction_service.record_correction(
+            exception_id=exception_id,
+            original_decision=orig_dec,
+            human_decision="REJECTED",
+            close_run_id=exc.close_run_id,
+            original_confidence=exc.confidence,
+            calibrated_confidence=exc.calibrated_confidence,
+            exception_type=exc.type.value if exc.type else "UNKNOWN",
+            policy_version_id="policy-v1",
+            reviewer_role="controller",
+            actor=actor,
+            reason=notes or "Resolution rejected by reviewer.",
         )
 
         if exc.close_run_id:
