@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 from app.close_workflow.types import ClosePolicy
@@ -35,11 +34,16 @@ class IndependentCalculationVerifier:
         recalculated_impact = expected_impact
 
         # Check for clean match: impact must be 0
-        if finding.root_cause_analysis.likely_cause.lower().startswith("clean") or "clean transaction" in finding.executive_summary.lower():
+        if (
+            finding.root_cause_analysis.likely_cause.lower().startswith("clean")
+            or "clean transaction" in finding.executive_summary.lower()
+        ):
             recalculated_impact = Decimal("0.00")
             variance_diff = abs(recalculated_impact - expected_impact)
             if variance_diff > Decimal("0.01"):
-                errors.append(f"Clean transaction expected 0.00 variance, but recorded impact was {expected_impact}")
+                errors.append(
+                    f"Clean transaction expected 0.00 variance, but recorded impact was {expected_impact}"
+                )
             return (len(errors) == 0, recalculated_impact, variance_diff, errors)
 
         # Discrepancy based on Invoice vs PO / Receipt
@@ -62,11 +66,17 @@ class IndependentCalculationVerifier:
                         f"difference {diff} does not match exception impact {expected_impact}"
                     )
             elif dossier.invoices:
-                inv_total = getattr(dossier.invoices[0], "total", getattr(dossier.invoices[0], "total_amount", Decimal("0.00")))
+                inv_total = getattr(
+                    dossier.invoices[0],
+                    "total",
+                    getattr(dossier.invoices[0], "total_amount", Decimal("0.00")),
+                )
                 recalculated_impact = inv_total
                 variance_diff = abs(recalculated_impact - expected_impact)
                 if variance_diff > Decimal("0.01"):
-                    errors.append(f"Invoice total {recalculated_impact} differs from recorded impact {expected_impact}")
+                    errors.append(
+                        f"Invoice total {recalculated_impact} differs from recorded impact {expected_impact}"
+                    )
 
         # Bank transaction vs Payment or GL
         elif dossier.exception_type in (
@@ -91,7 +101,9 @@ class IndependentCalculationVerifier:
                 recalculated_impact = dossier.bank_transactions[0].amount
                 variance_diff = abs(recalculated_impact - expected_impact)
                 if variance_diff > Decimal("0.01"):
-                    errors.append(f"Bank txn amount {recalculated_impact} differs from recorded impact {expected_impact}")
+                    errors.append(
+                        f"Bank txn amount {recalculated_impact} differs from recorded impact {expected_impact}"
+                    )
 
         # Journal entry errors
         elif dossier.exception_type in (
@@ -102,11 +114,17 @@ class IndependentCalculationVerifier:
         ):
             if dossier.journal_entries:
                 je = dossier.journal_entries[0]
-                je_total = getattr(je, "total", getattr(je, "total_amount", getattr(je, "subtotal", expected_impact)))
+                je_total = getattr(
+                    je,
+                    "total",
+                    getattr(je, "total_amount", getattr(je, "subtotal", expected_impact)),
+                )
                 recalculated_impact = je_total
                 variance_diff = abs(recalculated_impact - expected_impact)
                 if variance_diff > Decimal("0.01"):
-                    errors.append(f"Journal entry total {recalculated_impact} differs from recorded impact {expected_impact}")
+                    errors.append(
+                        f"Journal entry total {recalculated_impact} differs from recorded impact {expected_impact}"
+                    )
 
         variance_diff = abs(recalculated_impact - expected_impact)
         is_valid = len(errors) == 0 and variance_diff <= Decimal("0.01")
@@ -152,7 +170,14 @@ class EvidenceCompletenessVerifier:
 
         # 2. Check present evidence types across typed lists and graph nodes
         present_types: set[str] = set()
-        for attr in ("invoices", "purchase_orders", "goods_receipts", "bank_transactions", "payments", "journal_entries"):
+        for attr in (
+            "invoices",
+            "purchase_orders",
+            "goods_receipts",
+            "bank_transactions",
+            "payments",
+            "journal_entries",
+        ):
             if getattr(dossier, attr, []):
                 present_types.add(attr)
 
@@ -172,7 +197,9 @@ class EvidenceCompletenessVerifier:
             if req not in present_types and not getattr(dossier, req, []):
                 # Only flag if there are no related records in dossier at all
                 if not dossier.related_records and not dossier.valid_record_ids:
-                    missing.append(f"Missing required evidence category '{req}' for exception type {dossier.exception_type}")
+                    missing.append(
+                        f"Missing required evidence category '{req}' for exception type {dossier.exception_type}"
+                    )
 
         # 3. If investigation suffered insufficient evidence, mark incomplete
         if finding.finding_status == FindingStatus.INSUFFICIENT_EVIDENCE:
@@ -212,9 +239,13 @@ class PolicyGateVerifier:
 
         # Gate 1: Integrity failures block autonomous execution completely
         if not calculation_valid:
-            violations.append("Independent calculation verification failed — arithmetic discrepancy detected.")
+            violations.append(
+                "Independent calculation verification failed — arithmetic discrepancy detected."
+            )
         if not evidence_complete:
-            violations.append("Evidence completeness verification failed — missing required records or invalid citations.")
+            violations.append(
+                "Evidence completeness verification failed — missing required records or invalid citations."
+            )
 
         if violations:
             return (AutonomyLevel.OBSERVE, violations)

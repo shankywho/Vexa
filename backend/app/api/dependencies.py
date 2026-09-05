@@ -58,22 +58,15 @@ async def get_tenant_context(
             )
 
     if company_id is None:
-        # No tenant context anywhere (auth disabled and no default): fall
-        # back to the first company for local development convenience.
-        first = await session.scalar(select(Company).limit(1))
-        if first is not None:
-            company_id = first.id
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No tenant context available (set X-Company-Id or configure default tenant)",
+        )
 
-    if company_id is not None and not settings.auth_enabled:
+    if not settings.auth_enabled:
         # Validate the company exists when auth is disabled (dev mode).
         exists = await session.scalar(select(Company.id).where(Company.id == company_id))
         if exists is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
-
-    if company_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No tenant context available (create a company or set X-Company-Id)",
-        )
 
     return TenantContext(company_id=company_id)

@@ -43,8 +43,7 @@ async def test_seed_company_matches_profile(db: AsyncSession) -> None:
 
 async def test_seed_is_reproducible(db: AsyncSession) -> None:
     """Two identical seeds produce the same masters; audit trail proves both."""
-    company_1 = await seed_company(db, seed=7)
-    db.add(company_1)
+    await seed_company(db, seed=7)
     await db.flush()
 
     # Snapshot vendor names from seed 7.
@@ -60,9 +59,9 @@ async def test_seed_is_reproducible(db: AsyncSession) -> None:
     await db.execute(text("DELETE FROM fx_rates"))
     await db.execute(text("DELETE FROM companies"))
     await db.flush()
+    db.expunge_all()
 
-    company_2 = await seed_company(db, seed=7)
-    db.add(company_2)
+    await seed_company(db, seed=7)
     await db.flush()
 
     names_2 = set(

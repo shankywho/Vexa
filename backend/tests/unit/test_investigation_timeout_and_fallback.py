@@ -94,3 +94,149 @@ async def test_mock_llm_provider_injects_hallucination(dummy_request: Investigat
     # Verify hallucinated record was appended
     fake_facts = [f for f in finding.facts if "fake-hallucinated-id" in f.record_id]
     assert len(fake_facts) == 1
+
+
+@pytest.mark.asyncio
+async def test_real_llm_provider_structured_output_and_zero_arithmetic_authority(
+    dummy_request: InvestigationRequest, monkeypatch
+):
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+
+    import httpx
+
+    from app.investigation.llm_provider import RealLLMInvestigationProvider
+
+    p_id = list(dummy_request.dossier.valid_record_ids)[0]
+    canned_llm_json = {
+        "exception_id": str(dummy_request.exception_id),
+        "finding_status": "COMPLETED",
+        "primary_root_cause_category": "PROCUREMENT_DISCREPANCY",
+        "root_cause_analysis": {
+            "primary_category": "PROCUREMENT_DISCREPANCY",
+            "summary": "PO and invoice mismatch",
+            "likely_cause": "Unit price mismatch",
+            "is_genuine_discrepancy": True,
+            "is_timing_or_operational": False,
+        },
+        "facts": [
+            {
+                "statement": "Invoice verified",
+                "evidence_id": f"invoice:{p_id}",
+                "record_type": "invoice",
+                "record_id": p_id,
+            }
+        ],
+        "inferences": [],
+        "uncertainties": [],
+        "missing_evidence": [],
+        "recommendation": {
+            "action": "STAGE",
+            "target_role": "ACCOUNTANT",
+            "recommended_action": "Stage adjusting entry",
+            "should_block_close": False,
+            "should_escalate_to_cfo": False,
+            "controller_review_checklist": [],
+        },
+        "raw_confidence": "0.9500",
+        "financial_impact": "99999999.00",  # Attempted arithmetic hallucination
+        "currency": "EUR",
+        "executive_summary": "Summary",
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"content": json.dumps(canned_llm_json)}}]
+    }
+    mock_resp.raise_for_status = MagicMock()
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mock_client.post.return_value = mock_resp
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *args, **kwargs: mock_client)
+
+    real_provider = RealLLMInvestigationProvider(api_key="test-key", model="gpt-4o")
+    finding = await real_provider.generate_finding(dummy_request)
+
+    # Zero arithmetic authority: LLM does not set financial impact on finding; dossier retains source of truth
+    assert dummy_request.dossier.financial_impact == Decimal("5000.00")
+    assert dummy_request.dossier.currency == "USD"
+    assert finding.finding_status.value == "COMPLETED"
+    assert finding.exception_type == dummy_request.dossier.exception_type
+    assert finding.exception_id == dummy_request.exception_id
+
+
+@pytest.mark.asyncio
+async def test_real_llm_provider_citation_hallucination_triggers_fallback(
+    dummy_request: InvestigationRequest, monkeypatch
+):
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+
+    import httpx
+
+    from app.investigation.llm_provider import FallbackLLMProvider, RealLLMInvestigationProvider
+
+    canned_llm_hallu = {
+        "exception_id": str(dummy_request.exception_id),
+        "finding_status": "COMPLETED",
+        "primary_root_cause_category": "PROCUREMENT_DISCREPANCY",
+        "root_cause_analysis": {
+            "primary_category": "PROCUREMENT_DISCREPANCY",
+            "summary": "Summary",
+            "likely_cause": "Cause",
+            "is_genuine_discrepancy": True,
+            "is_timing_or_operational": False,
+        },
+        "facts": [
+            {
+                "statement": "Hallucinated invoice citation",
+                "evidence_id": "invoice:00000000-0000-0000-0000-999999999999",
+                "record_type": "invoice",
+                "record_id": "00000000-0000-0000-0000-999999999999",
+            }
+        ],
+        "inferences": [],
+        "uncertainties": [],
+        "missing_evidence": [],
+        "recommendation": {
+            "action": "STAGE",
+            "target_role": "ACCOUNTANT",
+            "recommended_action": "Stage adjusting entry",
+            "should_block_close": False,
+            "should_escalate_to_cfo": False,
+            "controller_review_checklist": [],
+        },
+        "raw_confidence": "0.9500",
+        "financial_impact": "5000.00",
+        "currency": "USD",
+        "executive_summary": "Summary",
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "choices": [{"message": {"content": json.dumps(canned_llm_hallu)}}]
+    }
+    mock_resp.raise_for_status = MagicMock()
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    mock_client.post.return_value = mock_resp
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *args, **kwargs: mock_client)
+
+    real_provider = RealLLMInvestigationProvider(api_key="test-key", model="gpt-4o")
+    fallback_wrapper = FallbackLLMProvider(primary_provider=real_provider)
+
+    # Hallucinated citation should cause primary provider to fail and safely fall back
+    finding = await fallback_wrapper.generate_finding(dummy_request)
+    assert finding is not None
+    assert finding.exception_id == dummy_request.exception_id
+    # Ensure finding came from deterministic fallback (no hallucinated citations)
+    fake_facts = [f for f in finding.facts if "999999999999" in f.record_id]
+    assert len(fake_facts) == 0

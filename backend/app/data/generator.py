@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import random
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -254,6 +255,11 @@ class DeterministicSeed:
         return rows
 
 
+def seed_uuid(company_id: uuid.UUID, entity_type: str, key: str | int) -> uuid.UUID:
+    """Generate a deterministic UUID5 for seeded entities based on company and natural key."""
+    return uuid.uuid5(uuid.NAMESPACE_DNS, f"vexa:{company_id}:{entity_type}:{key}")
+
+
 async def seed_company(
     session: AsyncSession,
     *,
@@ -262,6 +268,7 @@ async def seed_company(
     months: int = 3,
     fx_start: date | None = None,
     include_transactions: bool = False,
+    save_ground_truth: bool = False,
 ) -> Company:
     """Deterministically create NovaScale AI master data (and transactions if requested).
 
@@ -274,11 +281,17 @@ async def seed_company(
     if company_obj is not None:
         if include_transactions:
             await seed_financial_transactions(
-                session, company_obj, seed=seed, months=months, fx_start=fx_start
+                session,
+                company_obj,
+                seed=seed,
+                months=months,
+                fx_start=fx_start,
+                save_ground_truth=save_ground_truth,
             )
         return company_obj
 
     company = Company(
+        id=uuid.uuid5(uuid.NAMESPACE_DNS, f"vexa:company:{company_name}"),
         name=company_name,
         legal_name=profile["legal_name"],
         base_currency=profile["base_currency"],
@@ -359,7 +372,12 @@ async def seed_company(
 
     if include_transactions:
         await seed_financial_transactions(
-            session, company, seed=seed, months=months, fx_start=fx_start
+            session,
+            company,
+            seed=seed,
+            months=months,
+            fx_start=fx_start,
+            save_ground_truth=save_ground_truth,
         )
 
     return company
@@ -482,6 +500,7 @@ async def seed_financial_transactions(
     # Demo 1: Payment Fragmentation (spec section 22)
     demo1_vendor = vendors[0]
     po_demo1 = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-DEMO-001"),
         company_id=company.id,
         vendor_id=demo1_vendor.id,
         po_number="PO-DEMO-001",
@@ -504,6 +523,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     gr_demo1 = GoodsReceipt(
+        id=seed_uuid(company.id, "goods_receipt", "GR-DEMO-001"),
         company_id=company.id,
         po_id=po_demo1.id,
         receipt_number="GR-DEMO-001",
@@ -523,6 +543,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     inv_demo1 = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-DEMO-001"),
         company_id=company.id,
         vendor_id=demo1_vendor.id,
         po_id=po_demo1.id,
@@ -555,6 +576,7 @@ async def seed_financial_transactions(
     for p_idx in range(14):
         pmt_date = start_date + timedelta(days=24 + (p_idx // 4))
         p = Payment(
+            id=seed_uuid(company.id, "payment", f"REF-FRAG-DEMO-{p_idx + 1:02d}"),
             company_id=company.id,
             vendor_id=demo1_vendor.id,
             invoice_id=inv_demo1.id,
@@ -569,6 +591,7 @@ async def seed_financial_transactions(
         demo1_payments.append(p)
 
         bt = BankTransaction(
+            id=seed_uuid(company.id, "bank_transaction", f"REF-FRAG-DEMO-{p_idx + 1:02d}"),
             company_id=company.id,
             bank_account_id=inr_bank_acc_1.id,
             transaction_date=pmt_date,
@@ -608,6 +631,7 @@ async def seed_financial_transactions(
     # PO: 800 units @ 1600 = 12,80,000; Receipt: 760 units; Invoice: 1,000 units @ 1600 = 16,00,000
     demo2_vendor = vendors[1]
     po_demo2 = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-DEMO-002"),
         company_id=company.id,
         vendor_id=demo2_vendor.id,
         po_number="PO-DEMO-002",
@@ -630,6 +654,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     gr_demo2 = GoodsReceipt(
+        id=seed_uuid(company.id, "goods_receipt", "GR-DEMO-002"),
         company_id=company.id,
         po_id=po_demo2.id,
         receipt_number="GR-DEMO-002",
@@ -649,6 +674,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     inv_demo2 = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-DEMO-002"),
         company_id=company.id,
         vendor_id=demo2_vendor.id,
         po_id=po_demo2.id,
@@ -698,6 +724,7 @@ async def seed_financial_transactions(
     # Demo 3: Clean Transaction (spec section 24)
     demo3_vendor = vendors[2]
     po_demo3 = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-CLEAN-001"),
         company_id=company.id,
         vendor_id=demo3_vendor.id,
         po_number="PO-CLEAN-001",
@@ -720,6 +747,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     gr_demo3 = GoodsReceipt(
+        id=seed_uuid(company.id, "goods_receipt", "GR-CLEAN-001"),
         company_id=company.id,
         po_id=po_demo3.id,
         receipt_number="GR-CLEAN-001",
@@ -739,6 +767,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     inv_demo3 = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-CLEAN-001"),
         company_id=company.id,
         vendor_id=demo3_vendor.id,
         po_id=po_demo3.id,
@@ -766,6 +795,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     pmt_demo3 = Payment(
+        id=seed_uuid(company.id, "payment", "REF-CLEAN-001"),
         company_id=company.id,
         vendor_id=demo3_vendor.id,
         invoice_id=inv_demo3.id,
@@ -779,6 +809,7 @@ async def seed_financial_transactions(
     session.add(pmt_demo3)
 
     bt_demo3 = BankTransaction(
+        id=seed_uuid(company.id, "bank_transaction", "REF-CLEAN-001"),
         company_id=company.id,
         bank_account_id=inr_bank_acc_1.id,
         transaction_date=start_date + timedelta(days=32),
@@ -852,6 +883,7 @@ async def seed_financial_transactions(
     for dup_idx in range(5):
         v = vendors[3 + dup_idx]
         po = PurchaseOrder(
+            id=seed_uuid(company.id, "purchase_order", f"PO-DUP-{dup_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_number=f"PO-DUP-{dup_idx + 1:03d}",
@@ -864,6 +896,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         gr = GoodsReceipt(
+            id=seed_uuid(company.id, "goods_receipt", f"GR-DUP-{dup_idx + 1:03d}"),
             company_id=company.id,
             po_id=po.id,
             receipt_number=f"GR-DUP-{dup_idx + 1:03d}",
@@ -874,6 +907,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv_orig = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-DUP-ORIG-{dup_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -888,6 +922,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv_dup = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-DUP-DUP-{dup_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -930,6 +965,7 @@ async def seed_financial_transactions(
         diff = inv_tot - po_tot
 
         po = PurchaseOrder(
+            id=seed_uuid(company.id, "purchase_order", f"PO-MIS-{po_mismatch_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_number=f"PO-MIS-{po_mismatch_idx + 1:03d}",
@@ -952,6 +988,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         gr = GoodsReceipt(
+            id=seed_uuid(company.id, "goods_receipt", f"GR-MIS-{po_mismatch_idx + 1:03d}"),
             company_id=company.id,
             po_id=po.id,
             receipt_number=f"GR-MIS-{po_mismatch_idx + 1:03d}",
@@ -962,6 +999,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-POMIS-{po_mismatch_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -1008,6 +1046,7 @@ async def seed_financial_transactions(
     for rc_idx in range(3):
         v = vendors[12 + rc_idx]
         po = PurchaseOrder(
+            id=seed_uuid(company.id, "purchase_order", f"PO-RCMIS-{rc_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_number=f"PO-RCMIS-{rc_idx + 1:03d}",
@@ -1030,6 +1069,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         gr = GoodsReceipt(
+            id=seed_uuid(company.id, "goods_receipt", f"GR-RCMIS-{rc_idx + 1:03d}"),
             company_id=company.id,
             po_id=po.id,
             receipt_number=f"GR-RCMIS-{rc_idx + 1:03d}",
@@ -1049,6 +1089,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-RCMIS-{rc_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -1095,6 +1136,7 @@ async def seed_financial_transactions(
     for dp_idx in range(4):
         v = vendors[15 + dp_idx]
         po = PurchaseOrder(
+            id=seed_uuid(company.id, "purchase_order", f"PO-DUPP-{dp_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_number=f"PO-DUPP-{dp_idx + 1:03d}",
@@ -1117,6 +1159,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-DUPP-{dp_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -1132,6 +1175,7 @@ async def seed_financial_transactions(
 
         # Duplicate payment 1
         p1 = Payment(
+            id=seed_uuid(company.id, "payment", f"REF-DUPP-{dp_idx + 1}-1"),
             company_id=company.id,
             vendor_id=v.id,
             invoice_id=inv.id,
@@ -1146,6 +1190,7 @@ async def seed_financial_transactions(
 
         # Duplicate payment 2 (erroneous duplicate)
         p2 = Payment(
+            id=seed_uuid(company.id, "payment", f"REF-DUPP-{dp_idx + 1}-2"),
             company_id=company.id,
             vendor_id=v.id,
             invoice_id=inv.id,
@@ -1160,6 +1205,7 @@ async def seed_financial_transactions(
 
         # 2 corresponding bank debit transactions
         bt1 = BankTransaction(
+            id=seed_uuid(company.id, "bank_transaction", f"REF-DUPP-{dp_idx + 1}-1"),
             company_id=company.id,
             bank_account_id=inr_bank_acc_1.id,
             transaction_date=start_date + timedelta(days=25 + dp_idx * 10),
@@ -1173,6 +1219,7 @@ async def seed_financial_transactions(
         session.add(bt1)
 
         bt2 = BankTransaction(
+            id=seed_uuid(company.id, "bank_transaction", f"REF-DUPP-{dp_idx + 1}-2"),
             company_id=company.id,
             bank_account_id=inr_bank_acc_1.id,
             transaction_date=start_date + timedelta(days=26 + dp_idx * 10),
@@ -1209,6 +1256,7 @@ async def seed_financial_transactions(
         v = vendors[19 + uva_idx]
         surge_amount = Decimal("950000.00")
         po = PurchaseOrder(
+            id=seed_uuid(company.id, "purchase_order", f"PO-UVA-{uva_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_number=f"PO-UVA-{uva_idx + 1:03d}",
@@ -1221,6 +1269,7 @@ async def seed_financial_transactions(
         await session.flush()
 
         inv = Invoice(
+            id=seed_uuid(company.id, "invoice", f"INV-UVA-{uva_idx + 1:03d}"),
             company_id=company.id,
             vendor_id=v.id,
             po_id=po.id,
@@ -1255,6 +1304,7 @@ async def seed_financial_transactions(
     # 2nd Payment Fragmentation (Scenario 23)
     v_frag2 = vendors[22]
     po_frag2 = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-FRAG2-001"),
         company_id=company.id,
         vendor_id=v_frag2.id,
         po_number="PO-FRAG2-001",
@@ -1267,6 +1317,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     inv_frag2 = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-FRAG2-001"),
         company_id=company.id,
         vendor_id=v_frag2.id,
         po_id=po_frag2.id,
@@ -1284,6 +1335,7 @@ async def seed_financial_transactions(
     for fp_idx in range(10):
         p_date = start_date + timedelta(days=50 + fp_idx)
         p = Payment(
+            id=seed_uuid(company.id, "payment", f"REF-FRAG2-{fp_idx + 1:02d}"),
             company_id=company.id,
             vendor_id=v_frag2.id,
             invoice_id=inv_frag2.id,
@@ -1298,6 +1350,7 @@ async def seed_financial_transactions(
         frag2_pmts.append(p)
 
         bt = BankTransaction(
+            id=seed_uuid(company.id, "bank_transaction", f"REF-FRAG2-{fp_idx + 1:02d}"),
             company_id=company.id,
             bank_account_id=inr_bank_acc_2.id,
             transaction_date=p_date,
@@ -1333,6 +1386,7 @@ async def seed_financial_transactions(
     # Scenario 24: Invoice with missing PO
     v_miss1 = vendors[23]
     inv_no_po = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-NO-PO-001"),
         company_id=company.id,
         vendor_id=v_miss1.id,
         po_id=None,  # Missing PO
@@ -1367,6 +1421,7 @@ async def seed_financial_transactions(
     # Scenario 25: Invoice with PO but Missing Goods Receipt
     v_miss2 = vendors[24]
     po_no_gr = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-NO-GR-001"),
         company_id=company.id,
         vendor_id=v_miss2.id,
         po_number="PO-NO-GR-001",
@@ -1379,6 +1434,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     inv_no_gr = Invoice(
+        id=seed_uuid(company.id, "invoice", "INV-NO-GR-001"),
         company_id=company.id,
         vendor_id=v_miss2.id,
         po_id=po_no_gr.id,
@@ -1413,6 +1469,7 @@ async def seed_financial_transactions(
     # Scenario 26: PO & Goods Receipt with Missing Invoice
     v_miss3 = vendors[25]
     po_no_inv = PurchaseOrder(
+        id=seed_uuid(company.id, "purchase_order", "PO-NO-INV-001"),
         company_id=company.id,
         vendor_id=v_miss3.id,
         po_number="PO-NO-INV-001",
@@ -1425,6 +1482,7 @@ async def seed_financial_transactions(
     await session.flush()
 
     gr_no_inv = GoodsReceipt(
+        id=seed_uuid(company.id, "goods_receipt", "GR-NO-INV-001"),
         company_id=company.id,
         po_id=po_no_inv.id,
         receipt_number="GR-NO-INV-001",
@@ -1455,6 +1513,7 @@ async def seed_financial_transactions(
     # 3 Incorrect GL Mappings (Scenarios 27-29)
     # Entry 1: Software Expense misposted to Travel Expense
     je_gl1 = JournalEntry(
+        id=seed_uuid(company.id, "journal_entry", "JE-ERR-GL-001"),
         company_id=company.id,
         entry_date=start_date + timedelta(days=35),
         description="AWS Infrastructure Monthly (Mismapped)",
@@ -1502,6 +1561,7 @@ async def seed_financial_transactions(
 
     # Entry 2: Office Supplies misposted to Fixed Assets
     je_gl2 = JournalEntry(
+        id=seed_uuid(company.id, "journal_entry", "JE-ERR-GL-002"),
         company_id=company.id,
         entry_date=start_date + timedelta(days=45),
         description="Stationery and Printer Ink (Mismapped)",
@@ -1550,6 +1610,7 @@ async def seed_financial_transactions(
 
     # Entry 3: Revenue account debited on credit note
     je_gl3 = JournalEntry(
+        id=seed_uuid(company.id, "journal_entry", "JE-ERR-GL-003"),
         company_id=company.id,
         entry_date=start_date + timedelta(days=55),
         description="Supplier Refund (Mismapped to Revenue)",
@@ -1598,6 +1659,7 @@ async def seed_financial_transactions(
     # 2 Incorrect Accruals (Scenarios 30-31)
     # Accrual 1: Rent/Utilities estimated 2,50,000, actual invoice was 60,000
     je_acc1 = JournalEntry(
+        id=seed_uuid(company.id, "journal_entry", "JE-ACCR-001"),
         company_id=company.id,
         entry_date=start_date + timedelta(days=31),
         description="Jan Month-End Utilities Accrual Estimate",
@@ -1645,6 +1707,7 @@ async def seed_financial_transactions(
 
     # Accrual 2: Legal fees accrued 50,000, actual invoice 3,00,000
     je_acc2 = JournalEntry(
+        id=seed_uuid(company.id, "journal_entry", "JE-ACCR-002"),
         company_id=company.id,
         entry_date=start_date + timedelta(days=59),
         description="Feb Legal Services Accrual Estimate",
@@ -1700,6 +1763,7 @@ async def seed_financial_transactions(
 
         # Bank transaction for customer payment
         bt_ar = BankTransaction(
+            id=seed_uuid(company.id, "bank_transaction", f"CUST-REM-SHORT-{ar_idx + 1:02d}"),
             company_id=company.id,
             bank_account_id=inr_bank_acc_1.id,
             transaction_date=start_date + timedelta(days=40 + ar_idx * 15),
@@ -1734,6 +1798,7 @@ async def seed_financial_transactions(
     # 2 Cash Anomalies (Scenarios 34-35)
     # Anomaly 1: Unreconciled wire debit on statement
     bt_cash1 = BankTransaction(
+        id=seed_uuid(company.id, "bank_transaction", "TXN-UNIDENT-WIRE-OUT-001"),
         company_id=company.id,
         bank_account_id=inr_bank_acc_1.id,
         transaction_date=start_date + timedelta(days=62),
@@ -1766,6 +1831,7 @@ async def seed_financial_transactions(
 
     # Anomaly 2: Unexplained credit inflow
     bt_cash2 = BankTransaction(
+        id=seed_uuid(company.id, "bank_transaction", "TXN-UNIDENT-INFLOW-002"),
         company_id=company.id,
         bank_account_id=inr_bank_acc_2.id,
         transaction_date=start_date + timedelta(days=70),

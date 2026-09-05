@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 import pytest
@@ -13,8 +12,7 @@ from app.action.reversal import ReversalEngine
 from app.action.tools import ActionTools
 from app.action.types import ActionType
 from app.audit.service import AuditService
-from app.db.models.agent import AgentRun
-from app.db.models.exception import ExceptionAction, ExceptionRecord, ReversalAction
+from app.db.models.exception import ExceptionRecord
 from app.db.models.tenancy import Company
 from app.domain.enums import (
     AgentRunStatus,
@@ -61,7 +59,9 @@ async def open_exception(db: AsyncSession, company: Company) -> ExceptionRecord:
 
 
 @pytest.mark.asyncio
-async def test_action_tools_idempotency(db: AsyncSession, company: Company, open_exception: ExceptionRecord):
+async def test_action_tools_idempotency(
+    db: AsyncSession, company: Company, open_exception: ExceptionRecord
+):
     tools = ActionTools(db, company.id)
 
     # 1. Create review task

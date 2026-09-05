@@ -50,7 +50,7 @@ class ConfidenceCalibrationReport(BaseModel):
 
     total_predictions: int
     expected_calibration_error: Decimal  # ECE
-    maximum_calibration_error: Decimal   # MCE
+    maximum_calibration_error: Decimal  # MCE
     buckets: list[CalibrationBucket]
     calibration_formula: str = "ECE = sum( (count_b / N) * |acc_b - conf_b| )"
     policy_min_confidence_threshold: Decimal = Decimal("0.95")

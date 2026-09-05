@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import TenantContext, get_tenant_context
 from app.audit.service import AuditService
@@ -23,7 +22,6 @@ from app.db.models.close_run import CloseRun, CloseTask
 from app.db.models.demo import DemoTrace
 from app.db.models.exception import ExceptionRecord
 from app.db.repository import (
-    AgentRunRepository,
     CloseRunRepository,
     CloseTaskRepository,
     ExceptionRepository,
@@ -32,7 +30,7 @@ from app.db.session import get_session
 from app.demo.mode import DemoMode, demo_mode_manager
 from app.demo.trace_player import TracePlayer
 from app.demo.trace_recorder import seed_golden_traces
-from app.domain.enums import AuditEventType, CloseRunStatus
+from app.domain.enums import CloseRunStatus
 from app.domain.schemas import (
     AuditEventRead,
     ClosePackageRead,
@@ -192,8 +190,12 @@ async def get_close_run_audit(
 async def stream_close_run(
     id: uuid.UUID,
     trace_id: uuid.UUID | None = Query(default=None, description="Explicit trace ID to replay"),
-    playback_speed: float = Query(default=1.0, ge=0.1, le=100.0, description="Replay speed multiplier"),
-    simulate_delay: bool = Query(default=True, description="Whether to simulate delays during replay"),
+    playback_speed: float = Query(
+        default=1.0, ge=0.1, le=100.0, description="Replay speed multiplier"
+    ),
+    simulate_delay: bool = Query(
+        default=True, description="Whether to simulate delays during replay"
+    ),
     session: AsyncSession = Depends(get_session),
     tenant: TenantContext = Depends(get_tenant_context),
 ) -> StreamingResponse:

@@ -148,10 +148,11 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
             "scenario_key": "PAYMENT_FRAGMENTATION",
             "title": "Scenario 1: Payment Fragmentation Below Threshold (Fraud / Policy Evasion)",
             "description": (
-                "Vendor invoices split into $48,000 and $49,000 increments to bypass the "
-                "$50,000 controller approval policy. Investigation traverses graph to find "
-                "10 structured settlements. Verifier flags policy conflict; recommended action "
-                "is CFO ESCALATION."
+                "Vendor invoice of ₹14,50,000 paid via 14 separate payments of ₹1,00,000 "
+                "within the same settlement window to evade single-transaction authorization "
+                "threshold (₹10,00,000). Investigation traverses graph across 14 fragmented "
+                "payments and bank transactions. Verifier flags policy conflict; recommended "
+                "action is CFO ESCALATION."
             ),
             "events": [
                 {"offset_ms": 0, "event": "connected", "status": "INVESTIGATING"},
@@ -181,7 +182,7 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                     "tool_name": "EvidenceDossierBuilder",
                     "status": "COMPLETED",
                     "citations_valid": True,
-                    "output": {"valid_records_count": 11, "ranked_nodes_count": 11},
+                    "output": {"valid_records_count": 15, "ranked_nodes_count": 15},
                 },
                 {
                     "offset_ms": 750,
@@ -193,8 +194,8 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                     "citations_valid": True,
                     "output": {
                         "likely_cause": (
-                            "Fragmented settlement pattern to evade single-transaction "
-                            "authorization threshold"
+                            "Fragmented settlement pattern (14 payments of ₹1,00,000 "
+                            "against invoice of ₹14,50,000) evading authorization threshold"
                         )
                     },
                 },
@@ -246,12 +247,12 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
         },
         {
             "scenario_key": "PO_MISMATCH",
-            "title": "Scenario 2: Purchase Order Quantity Mismatch ($24,000 Overbilling)",
+            "title": "Scenario 2: Purchase Order Quantity Mismatch (₹3,84,000 Overbilling)",
             "description": (
-                "Invoice billed 120 units at $1,200 ($144,000) against PO and Goods Receipt for "
-                "100 units ($120,000). Verifier confirms $24,000 calculation discrepancy. Action "
-                "agent stages adjusting journal entry and drafts vendor discrepancy letter, "
-                "awaiting human approval."
+                "Invoice billed 1,000 units at ₹1,600 (₹16,00,000) against PO for 800 units "
+                "(₹12,80,000) and Goods Receipt for 760 units (₹12,16,000). Verifier confirms "
+                "240 units / ₹3,84,000 calculation discrepancy. Action agent stages adjusting "
+                "journal entry and drafts vendor discrepancy letter, awaiting human approval."
             ),
             "events": [
                 {"offset_ms": 0, "event": "connected", "status": "INVESTIGATING"},
@@ -275,7 +276,7 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                     "tool_name": "EvidenceDossierBuilder",
                     "status": "COMPLETED",
                     "citations_valid": True,
-                    "output": {"invoice_qty": 120, "po_qty": 100, "received_qty": 100},
+                    "output": {"invoice_qty": 1000, "po_qty": 800, "received_qty": 760},
                 },
                 {
                     "offset_ms": 650,
@@ -287,8 +288,8 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                     "citations_valid": True,
                     "output": {
                         "likely_cause": (
-                            "Invoice quantity exceeds authorized PO quantity "
-                            "by 20 units ($24,000.00)"
+                            "Invoice billed 1,000 units exceeding received quantity "
+                            "of 760 units by 240 units (₹3,84,000.00)"
                         )
                     },
                 },
@@ -305,25 +306,25 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                     "event": "action_executed",
                     "action_type": "STAGE_JOURNAL_ENTRY",
                     "status": "STAGED",
-                    "amount": "24000.00",
+                    "amount": "384000.00",
                 },
                 {
                     "offset_ms": 1100,
                     "event": "action_executed",
                     "action_type": "DRAFT_VENDOR_EMAIL",
                     "status": "STAGED",
-                    "vendor": "Acme Industrial Supplies",
+                    "vendor": "NovaScale Compute Supplies",
                 },
                 {"offset_ms": 1250, "event": "completed", "status": "WAITING_FOR_HUMAN"},
             ],
         },
         {
             "scenario_key": "CLEAN_TRANSACTION",
-            "title": "Scenario 3: Clean 6-Way Reconciled Transaction ($0 Variance)",
+            "title": "Scenario 3: Clean 6-Way Reconciled Transaction (₹2,50,000 / ₹0 Variance)",
             "description": (
-                "Standard procurement order with exact matching between Purchase Order, "
-                "Goods Receipt, Vendor Invoice, Bank Statement, Payment, and General Ledger line. "
-                "Autonomously verified and resolved."
+                "Standard procurement order of ₹2,50,000 with exact matching between "
+                "Purchase Order, Goods Receipt, Vendor Invoice, Bank Statement, Payment, "
+                "and General Ledger line. Autonomously verified and resolved with ₹0 variance."
             ),
             "events": [
                 {"offset_ms": 0, "event": "connected", "status": "RECONCILING"},

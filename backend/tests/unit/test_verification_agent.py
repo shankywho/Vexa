@@ -66,7 +66,9 @@ def base_finding(base_exception: ExceptionRecord) -> InvestigationFinding:
     )
 
 
-def test_independent_calculation_verifier_success(base_exception: ExceptionRecord, base_finding: InvestigationFinding):
+def test_independent_calculation_verifier_success(
+    base_exception: ExceptionRecord, base_finding: InvestigationFinding
+):
     verifier = IndependentCalculationVerifier()
     inv = Invoice(
         id=uuid.uuid4(),
@@ -149,7 +151,9 @@ def test_independent_calculation_verifier_detects_mismatch(
     assert "mismatch" in errors[0].lower()
 
 
-def test_evidence_completeness_verifier(base_exception: ExceptionRecord, base_finding: InvestigationFinding):
+def test_evidence_completeness_verifier(
+    base_exception: ExceptionRecord, base_finding: InvestigationFinding
+):
     verifier = EvidenceCompletenessVerifier()
 
     # Case 1: Missing required purchase orders
@@ -183,7 +187,9 @@ def test_evidence_completeness_verifier(base_exception: ExceptionRecord, base_fi
             "hallucinated_citations": ["fake-id-999"],
         }
     )
-    complete_hallu, missing_hallu = verifier.verify_evidence(dossier_incomplete, finding_hallucinated)
+    complete_hallu, missing_hallu = verifier.verify_evidence(
+        dossier_incomplete, finding_hallucinated
+    )
     assert complete_hallu is False
     assert any("fake-id-999" in m for m in missing_hallu)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -46,6 +47,8 @@ from app.domain.enums import (
 )
 from app.evidence_graph.graph import FinancialEvidenceGraph
 from app.reconciliation.schemas import ReconciliationRunSummary
+
+logger = logging.getLogger(__name__)
 
 
 class CloseWorkflowController:
@@ -240,6 +243,7 @@ class CloseWorkflowController:
                     error_message=result.error_message,
                 )
             except Exception as exc:
+                logger.exception("Task %s execution failed: %s", task_type_to_run.value, exc)
                 await self.state_machine.transition_task(
                     task_to_run.id,
                     CloseTaskStatus.FAILED,

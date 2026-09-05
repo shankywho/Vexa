@@ -99,6 +99,62 @@ def test_exception_router_cfo_escalation() -> None:
     assert decision.is_blocking is True
 
 
+def test_exception_router_calibrated_confidence_precedence() -> None:
+    policy = ClosePolicy(
+        max_auto_resolution_amount=Decimal("50000.00"),
+        min_confidence=Decimal("0.95"),
+    )
+    router = ExceptionRouter(policy)
+
+    # High raw confidence (0.99) but low calibrated confidence (0.80) -> HUMAN_REVIEW
+    exc_low_cal = ExceptionRecord(
+        id=uuid.uuid4(),
+        company_id=uuid.uuid4(),
+        type=ExceptionType.OTHER,
+        severity=ExceptionSeverity.LOW,
+        status=ExceptionStatus.OPEN,
+        financial_impact=Decimal("200.00"),
+        confidence=Decimal("0.99"),
+        calibrated_confidence=Decimal("0.80"),
+        currency="USD",
+    )
+    decision = router.route_exception(exc_low_cal, policy)
+    assert decision.routing == "HUMAN_REVIEW"
+    assert decision.is_blocking is True
+
+    # Low raw confidence (0.80) but high calibrated confidence (0.98) -> AUTO_RESOLVE
+    exc_high_cal = ExceptionRecord(
+        id=uuid.uuid4(),
+        company_id=uuid.uuid4(),
+        type=ExceptionType.OTHER,
+        severity=ExceptionSeverity.LOW,
+        status=ExceptionStatus.OPEN,
+        financial_impact=Decimal("200.00"),
+        confidence=Decimal("0.80"),
+        calibrated_confidence=Decimal("0.98"),
+        currency="USD",
+    )
+    decision2 = router.route_exception(exc_high_cal, policy)
+    assert decision2.routing == "AUTO_RESOLVE"
+    assert decision2.is_blocking is False
+
+    # Missing confidence (None) -> treats as 0.0000 -> HUMAN_REVIEW
+    exc_none = ExceptionRecord(
+        id=uuid.uuid4(),
+        company_id=uuid.uuid4(),
+        type=ExceptionType.OTHER,
+        severity=ExceptionSeverity.LOW,
+        status=ExceptionStatus.OPEN,
+        financial_impact=Decimal("200.00"),
+        confidence=None,
+        calibrated_confidence=None,
+        currency="USD",
+    )
+    decision3 = router.route_exception(exc_none, policy)
+    assert decision3.routing == "HUMAN_REVIEW"
+    assert decision3.is_blocking is True
+
+
 def test_resolved_exception_is_not_blocking() -> None:
     policy = ClosePolicy()
     router = ExceptionRouter(policy)

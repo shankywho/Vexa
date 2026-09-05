@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.types import ActionType, ReversalResult
 from app.audit.service import AuditService
+from app.db.base import utcnow
 from app.db.repository import (
     ExceptionActionRepository,
     ExceptionRepository,
     ReversalActionRepository,
 )
-from app.db.base import utcnow
 from app.domain.enums import AuditEventType, ExceptionStatus
 
 

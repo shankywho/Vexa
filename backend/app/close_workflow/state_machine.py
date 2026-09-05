@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 
@@ -18,6 +19,8 @@ from app.domain.enums import (
     CloseTaskStatus,
     CloseTaskType,
 )
+
+logger = logging.getLogger(__name__)
 
 # Allowed state transitions for CloseRun (spec section 14).
 ALLOWED_CLOSE_RUN_TRANSITIONS: dict[CloseRunStatus, set[CloseRunStatus]] = {
@@ -198,6 +201,24 @@ class CloseWorkflowStateMachine:
             },
         )
 
+        try:
+            from app.streaming.bus import agent_event_bus
+
+            await agent_event_bus.publish(
+                close_run_id,
+                {
+                    "event": "close_run_state_change",
+                    "close_run_id": str(close_run_id),
+                    "previous_status": current.value,
+                    "new_status": new_status.value,
+                    "version": new_version,
+                    "actor": actor,
+                    "reason": reason or f"Transition from {current.value} to {new_status.value}",
+                },
+            )
+        except Exception as bus_err:
+            logger.warning("Failed to publish close_run_state_change to SSE bus: %s", bus_err)
+
         return close_run
 
     async def transition_task(
@@ -264,6 +285,27 @@ class CloseWorkflowStateMachine:
                 "error_message": error_message,
             },
         )
+
+        if task.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    task.close_run_id,
+                    {
+                        "event": "close_task_state_change",
+                        "close_run_id": str(task.close_run_id),
+                        "task_id": str(task.id),
+                        "task_type": task.task_type.value,
+                        "previous_status": current.value,
+                        "new_status": new_status.value,
+                        "summary": summary,
+                        "metrics": metrics,
+                        "error_message": error_message,
+                    },
+                )
+            except Exception as bus_err:
+                logger.warning("Failed to publish close_task_state_change to SSE bus: %s", bus_err)
 
         return task
 

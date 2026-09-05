@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.benchmarks.types import CalibrationBucket, ConfidenceCalibrationReport, ScenarioBenchmarkResult
+from app.benchmarks.types import (
+    CalibrationBucket,
+    ConfidenceCalibrationReport,
+    ScenarioBenchmarkResult,
+)
 
 
 def compute_calibration_report(

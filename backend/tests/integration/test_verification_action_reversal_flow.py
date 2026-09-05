@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.service import ActionService
-from app.action.types import ActionType
 from app.audit.service import AuditService
-from app.close_workflow.controller import CloseWorkflowController
 from app.data.generator import seed_financial_transactions
 from app.data.seed import seed_company
-from app.db.models.agent import AgentRun
-from app.db.models.exception import ExceptionAction, ExceptionRecord, ReversalAction
-from app.db.models.tenancy import Company
 from app.db.repository import (
     AgentRunRepository,
     ExceptionActionRepository,
@@ -26,7 +20,6 @@ from app.db.repository import (
 from app.domain.enums import (
     AgentRunStatus,
     AuditEventType,
-    AutonomyLevel,
     ExceptionStatus,
 )
 from app.investigation.service import InvestigationService
@@ -81,7 +74,7 @@ async def test_verification_action_reversal_complete_lifecycle(db: AsyncSession)
         verification=verification,
     )
     assert len(actions) >= 1
-    primary_action = actions[0]
+    assert actions[0].action_type is not None
 
     # Check Action AgentRun tracking
     act_runs = await agent_repo.list_by_exception(target_exc.id)

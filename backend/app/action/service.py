@@ -12,13 +12,13 @@ from app.action.reversal import ReversalEngine
 from app.action.tools import ActionTools
 from app.action.types import ActionResult, ActionType, ReversalResult
 from app.audit.service import AuditService
-from app.db.models.exception import ExceptionAction, ExceptionRecord, ReversalAction
+from app.db.base import utcnow
+from app.db.models.exception import ExceptionAction, ReversalAction
 from app.db.repository import (
     ExceptionActionRepository,
     ExceptionRepository,
     ReversalActionRepository,
 )
-from app.db.base import utcnow
 from app.domain.enums import AuditEventType, ExceptionStatus, Role
 from app.investigation.types import InvestigationFinding
 from app.verification.types import VerificationResult
@@ -45,7 +45,25 @@ class ActionService:
         verification: VerificationResult,
     ) -> list[ActionResult]:
         """Execute autonomous actions guided by independent verification."""
-        return await self.agent.execute_for_verification(exception_id, finding, verification)
+        results = await self.agent.execute_for_verification(exception_id, finding, verification)
+        exc = await self.exc_repo.get_by_id(exception_id)
+        if exc and exc.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    exc.close_run_id,
+                    {
+                        "event": "actions_executed",
+                        "close_run_id": str(exc.close_run_id),
+                        "exception_id": str(exception_id),
+                        "actions_count": len(results),
+                        "actions": [r.action_type.value for r in results],
+                    },
+                )
+            except Exception:
+                pass
+        return results
 
     async def approve_exception(
         self,
@@ -89,6 +107,22 @@ class ActionService:
             entity_id=exception_id,
             payload=payload,
         )
+
+        if exc.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    exc.close_run_id,
+                    {
+                        "event": "exception_approved",
+                        "close_run_id": str(exc.close_run_id),
+                        "exception_id": str(exception_id),
+                        "actor": actor,
+                    },
+                )
+            except Exception:
+                pass
 
         return ActionResult(
             action_id=action.id,
@@ -140,6 +174,22 @@ class ActionService:
             payload=payload,
         )
 
+        if exc.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    exc.close_run_id,
+                    {
+                        "event": "exception_rejected",
+                        "close_run_id": str(exc.close_run_id),
+                        "exception_id": str(exception_id),
+                        "actor": actor,
+                    },
+                )
+            except Exception:
+                pass
+
         return ActionResult(
             action_id=action.id,
             exception_id=exception_id,
@@ -159,12 +209,30 @@ class ActionService:
         actor: str = "controller",
     ) -> ActionResult:
         """Manually or programmatically escalate exception to CFO (spec section 17)."""
-        return await self.tools.mark_exception_escalated(
+        result = await self.tools.mark_exception_escalated(
             exception_id=exception_id,
             escalation_reason=reason or "Manual escalation to senior leadership",
             target_role=target_role,
             actor=actor,
         )
+        exc = await self.exc_repo.get_by_id(exception_id)
+        if exc and exc.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    exc.close_run_id,
+                    {
+                        "event": "exception_escalated",
+                        "close_run_id": str(exc.close_run_id),
+                        "exception_id": str(exception_id),
+                        "actor": actor,
+                        "target_role": str(target_role),
+                    },
+                )
+            except Exception:
+                pass
+        return result
 
     async def reverse_action(
         self,
@@ -179,8 +247,12 @@ class ActionService:
             reversed_by=reversed_by,
         )
 
-    async def list_actions_for_exception(self, exception_id: uuid.UUID) -> Sequence[ExceptionAction]:
+    async def list_actions_for_exception(
+        self, exception_id: uuid.UUID
+    ) -> Sequence[ExceptionAction]:
         return await self.action_repo.list_by_exception(exception_id)
 
-    async def list_reversals_for_exception(self, exception_id: uuid.UUID) -> Sequence[ReversalAction]:
+    async def list_reversals_for_exception(
+        self, exception_id: uuid.UUID
+    ) -> Sequence[ReversalAction]:
         return await self.reversal_repo.list_by_exception(exception_id)

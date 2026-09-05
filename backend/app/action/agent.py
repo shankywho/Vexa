@@ -5,18 +5,17 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.tools import ActionTools
-from app.action.types import ActionResult, ActionType
+from app.action.types import ActionResult
 from app.audit.service import AuditService
+from app.db.base import utcnow
 from app.db.models.agent import AgentRun, AgentStep
 from app.db.repository import ExceptionRepository
-from app.db.base import utcnow
 from app.domain.enums import AgentRunStatus, AuditEventType, AutonomyLevel, Role
-from app.investigation.types import AutonomyAction, InvestigationFinding
+from app.investigation.types import InvestigationFinding
 from app.verification.types import VerificationResult
 
 ACTION_AGENT_PROMPT_VERSION_ID = "action-v1"
@@ -101,7 +100,8 @@ class ActionAgent:
         if autonomy == AutonomyLevel.EXECUTE and verification.verified:
             act = await self.tools.mark_exception_resolved(
                 exception_id=exception_id,
-                resolution_note=finding.recommendation.recommended_action or "Auto-resolved: verified clean match within tolerances.",
+                resolution_note=finding.recommendation.recommended_action
+                or "Auto-resolved: verified clean match within tolerances.",
                 actor="action_agent",
                 auto_resolved=True,
             )
@@ -126,7 +126,10 @@ class ActionAgent:
                     memo=f"Accrual adjustment for {finding.root_cause_analysis.likely_cause}",
                     lines=[
                         {"account": "Operating Expense", "debit": str(exception.financial_impact)},
-                        {"account": "Accrued Liabilities", "credit": str(exception.financial_impact)},
+                        {
+                            "account": "Accrued Liabilities",
+                            "credit": str(exception.financial_impact),
+                        },
                     ],
                     currency=exception.currency,
                 )

@@ -29,8 +29,8 @@ from app.domain.enums import AgentRunStatus, AuditEventType, ExceptionStatus
 from app.investigation.calibration import ConfidenceCalibrator
 from app.investigation.citation_validator import CitationValidator
 from app.investigation.llm_provider import (
-    DeterministicInvestigationProvider,
     LLMProvider,
+    get_default_llm_provider,
 )
 from app.investigation.types import (
     AutonomyAction,
@@ -60,7 +60,7 @@ class CFOInvestigationAgent:
     ) -> None:
         self.session = session
         self.company_id = company_id
-        self.provider = provider or DeterministicInvestigationProvider()
+        self.provider = provider or get_default_llm_provider()
         self.calibrator = calibrator or ConfidenceCalibrator()
         self.validator = validator or CitationValidator()
         self.audit_service = audit_service or AuditService(session, company_id)
@@ -108,6 +108,24 @@ class CFOInvestigationAgent:
             )
         except Exception as audit_err:
             logger.warning("Failed to record AGENT_RUN_STARTED audit event: %s", audit_err)
+
+        if request.close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    request.close_run_id,
+                    {
+                        "event": "investigation_started",
+                        "close_run_id": str(request.close_run_id),
+                        "exception_id": str(request.exception_id),
+                        "agent_run_id": str(agent_run.id),
+                        "exception_type": dossier.exception_type.value,
+                        "financial_impact": str(dossier.financial_impact),
+                    },
+                )
+            except Exception as bus_err:
+                logger.warning("Failed to publish investigation_started to SSE bus: %s", bus_err)
 
         step_num = 1
         try:
@@ -289,6 +307,29 @@ class CFOInvestigationAgent:
             except Exception as audit_err:
                 logger.warning("Failed to record AGENT_RUN_COMPLETED audit event: %s", audit_err)
 
+            if request.close_run_id:
+                try:
+                    from app.streaming.bus import agent_event_bus
+
+                    await agent_event_bus.publish(
+                        request.close_run_id,
+                        {
+                            "event": "investigation_completed",
+                            "close_run_id": str(request.close_run_id),
+                            "exception_id": str(request.exception_id),
+                            "agent_run_id": str(agent_run.id),
+                            "finding_status": final_finding.finding_status.value,
+                            "action": final_finding.recommendation.action.value,
+                            "likely_cause": final_finding.root_cause_analysis.likely_cause,
+                            "financial_impact": str(dossier.financial_impact),
+                            "calibrated_confidence": str(final_finding.calibrated_confidence),
+                        },
+                    )
+                except Exception as bus_err:
+                    logger.warning(
+                        "Failed to publish investigation_completed to SSE bus: %s", bus_err
+                    )
+
             return final_finding
 
         except Exception as exc:
@@ -303,6 +344,24 @@ class CFOInvestigationAgent:
             agent_run.error_message = str(exc)
             agent_run.latency_ms = int((time.monotonic() - start_mono) * 1000)
             await self.session.flush()
+
+            if request.close_run_id:
+                try:
+                    from app.streaming.bus import agent_event_bus
+
+                    await agent_event_bus.publish(
+                        request.close_run_id,
+                        {
+                            "event": "investigation_failed",
+                            "close_run_id": str(request.close_run_id),
+                            "exception_id": str(request.exception_id),
+                            "agent_run_id": str(agent_run.id),
+                            "error": str(exc),
+                        },
+                    )
+                except Exception as bus_err:
+                    logger.warning("Failed to publish investigation_failed to SSE bus: %s", bus_err)
+
             raise
 
     def _apply_policy_overrides(

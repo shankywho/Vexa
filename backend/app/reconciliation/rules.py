@@ -7,6 +7,7 @@ Explainable structured outputs with explicit tolerance tracking.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from app.db.models.banking import BankTransaction, Payment
@@ -507,29 +508,36 @@ async def match_payments_to_invoice(
         pmt_amounts = [p.amount for p in payments]
         if len(set(pmt_amounts)) == 1 and total_paid > invoice.total:
             dup_impact = total_paid - invoice.total
+            sorted_pmts = sorted(payments, key=lambda p: (p.payment_date or date.min, str(p.id)))
+            orig_pmt = sorted_pmts[0]
+            dup_pmt = sorted_pmts[-1]
             return ReconciliationItemResult(
                 company_id=invoice.company_id,
                 reconciliation_type=ReconciliationType.PAYMENT_INVOICE,
                 status=ReconciliationStatus.MISMATCH,
                 confidence=Decimal("1.0000"),
                 financial_impact=dup_impact,
-                source_record_type="INVOICE",
-                source_record_id=invoice.id,
-                source_record_number=invoice.invoice_number,
+                source_record_type="PAYMENT",
+                source_record_id=dup_pmt.id,
+                source_record_number=dup_pmt.beneficiary_reference,
                 matched_records=[
                     MatchedRecordReference(
+                        record_type="INVOICE",
+                        record_id=invoice.id,
+                        record_number=invoice.invoice_number,
+                    ),
+                    MatchedRecordReference(
                         record_type="PAYMENT",
-                        record_id=p.id,
-                        record_number=p.beneficiary_reference,
-                    )
-                    for p in payments
+                        record_id=orig_pmt.id,
+                        record_number=orig_pmt.beneficiary_reference,
+                    ),
                 ],
                 amounts={"invoice_total": invoice.total, "total_paid": total_paid},
                 differences={"overpayment": dup_impact},
                 deterministic_reason=(
-                    f"Duplicate Payment: Invoice {invoice.invoice_number} of {invoice.total} "
-                    f"was paid {len(payments)} times "
-                    f"(total paid: {total_paid}, overpayment: {dup_impact})."
+                    f"Duplicate Payment: Payment {dup_pmt.beneficiary_reference or dup_pmt.id} of {dup_pmt.amount} "
+                    f"is an erroneous duplicate payment for Invoice {invoice.invoice_number} "
+                    f"(original payment: {orig_pmt.beneficiary_reference or orig_pmt.id})."
                 ),
                 exception_type=ExceptionType.DUPLICATE_PAYMENT,
             )

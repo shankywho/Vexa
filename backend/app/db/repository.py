@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -735,7 +735,9 @@ class ExceptionActionRepository:
             ExceptionRecord.company_id == self.company_id,
         )
         if not await self.session.scalar(stmt):
-            raise ValueError(f"Exception {exception_id} does not belong to company {self.company_id}")
+            raise ValueError(
+                f"Exception {exception_id} does not belong to company {self.company_id}"
+            )
 
         action = ExceptionAction(
             exception_id=exception_id,
@@ -813,7 +815,9 @@ class ReversalActionRepository:
             ExceptionRecord.company_id == self.company_id,
         )
         if not await self.session.scalar(stmt):
-            raise ValueError(f"Exception {exception_id} does not belong to company {self.company_id}")
+            raise ValueError(
+                f"Exception {exception_id} does not belong to company {self.company_id}"
+            )
 
         reversal = ReversalAction(
             exception_action_id=exception_action_id,

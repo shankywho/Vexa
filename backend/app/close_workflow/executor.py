@@ -5,9 +5,11 @@ Pluggable executor interfaces so Phase 6 Investigation Agents can plug into the 
 
 from __future__ import annotations
 
+import logging
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,11 +32,12 @@ from app.domain.enums import (
 )
 from app.evidence_graph.builder import FinancialEvidenceGraphBuilder
 from app.evidence_graph.graph import FinancialEvidenceGraph
-from typing import TYPE_CHECKING
+from app.reconciliation.schemas import ReconciliationRunSummary, ReconciliationType
 
 if TYPE_CHECKING:
     from app.reconciliation.engine import DeterministicReconciliationEngine
-from app.reconciliation.schemas import ReconciliationRunSummary, ReconciliationType
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,6 +54,10 @@ class TaskExecutionContext:
     evidence_graph: FinancialEvidenceGraph | None = None
     reconciliation_summary: ReconciliationRunSummary | None = None
 
+    @property
+    def close_run_id(self) -> uuid.UUID:
+        return self.close_run.id
+
     async def get_or_create_reconciliation_summary(self) -> ReconciliationRunSummary:
         """Lazily load or run deterministic reconciliation, persisting results idempotently."""
         if self.reconciliation_summary is None:
@@ -60,6 +67,24 @@ class TaskExecutionContext:
             self.reconciliation_summary = await self.engine.run_full_reconciliation(
                 close_run_id=self.close_run.id, persist=should_persist
             )
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    self.close_run.id,
+                    {
+                        "event": "reconciliation_completed",
+                        "close_run_id": str(self.close_run.id),
+                        "total_evaluated": self.reconciliation_summary.total_items_processed,
+                        "matched_count": self.reconciliation_summary.total_matched,
+                        "exception_count": self.reconciliation_summary.total_exceptions,
+                        "total_financial_impact": str(
+                            self.reconciliation_summary.total_financial_impact
+                        ),
+                    },
+                )
+            except Exception as bus_err:
+                logger.warning("Failed to publish reconciliation_completed event: %s", bus_err)
         return self.reconciliation_summary
 
     async def get_or_create_evidence_graph(self) -> FinancialEvidenceGraph:
@@ -359,25 +384,49 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
         cfo_escalation_count = sum(1 for d in decisions if d.routing == "CFO_ESCALATION")
         blocking_count = sum(1 for d in decisions if d.is_blocking)
 
-        # Generate evidence packs, investigate, verify, and stage actions for evaluation sample
+        # Generate evidence packs, investigate, verify, and stage actions for all exceptions
         from app.action.service import ActionService
+        from app.audit.service import AuditService
+        from app.domain.enums import AuditEventType
         from app.investigation.service import InvestigationService
         from app.verification.service import VerificationService
 
         investigation_service = InvestigationService(context.session, context.company_id)
         verification_service = VerificationService(context.session, context.company_id)
         action_service = ActionService(context.session, context.company_id)
+        audit_service = AuditService(context.session, context.company_id)
 
         packs_generated = 0
         investigations_completed = 0
+        investigations_failed = 0
         verifications_completed = 0
+        verifications_failed = 0
         actions_executed = 0
+        actions_failed = 0
 
-        for exc in exceptions[:10]:  # generate packs, investigate, verify, act
-            await pack_router.generate_evidence_pack(
-                context.session, context.company_id, exc, ev_graph
-            )
-            packs_generated += 1
+        for exc in exceptions:
+            try:
+                await pack_router.generate_evidence_pack(
+                    context.session, context.company_id, exc, ev_graph
+                )
+                packs_generated += 1
+            except Exception as e:
+                logger.error(
+                    "Failed to generate evidence pack for exception %s: %s",
+                    exc.id,
+                    e,
+                    exc_info=True,
+                )
+                await audit_service.record(
+                    event_type=AuditEventType.SYSTEM,
+                    close_run_id=context.close_run_id,
+                    exception_id=exc.id,
+                    decision="EVIDENCE_PACK_FAILED",
+                    reason=f"Failed to generate evidence pack: {e}",
+                    metadata_={"error": str(e), "stage": "generate_evidence_pack"},
+                )
+                continue
+
             try:
                 finding = await investigation_service.investigate_exception(
                     exception_id=exc.id,
@@ -385,24 +434,60 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
                     graph=ev_graph,
                 )
                 investigations_completed += 1
-                try:
-                    ver = await verification_service.verify_exception(
-                        exception_id=exc.id,
-                        policy=context.policy,
-                        graph=ev_graph,
-                        finding=finding,
-                    )
-                    verifications_completed += 1
-                    acts = await action_service.execute_for_verification(
-                        exception_id=exc.id,
-                        finding=finding,
-                        verification=ver,
-                    )
-                    actions_executed += len(acts)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+            except Exception as e:
+                investigations_failed += 1
+                logger.error("Investigation failed for exception %s: %s", exc.id, e, exc_info=True)
+                await audit_service.record(
+                    event_type=AuditEventType.SYSTEM,
+                    close_run_id=context.close_run_id,
+                    exception_id=exc.id,
+                    decision="INVESTIGATION_FAILED",
+                    reason=f"Investigation failed: {e}",
+                    metadata_={"error": str(e), "stage": "investigate_exception"},
+                )
+                continue
+
+            try:
+                ver = await verification_service.verify_exception(
+                    exception_id=exc.id,
+                    policy=context.policy,
+                    graph=ev_graph,
+                    finding=finding,
+                )
+                verifications_completed += 1
+            except Exception as e:
+                verifications_failed += 1
+                logger.error("Verification failed for exception %s: %s", exc.id, e, exc_info=True)
+                await audit_service.record(
+                    event_type=AuditEventType.SYSTEM,
+                    close_run_id=context.close_run_id,
+                    exception_id=exc.id,
+                    decision="VERIFICATION_FAILED",
+                    reason=f"Verification failed: {e}",
+                    metadata_={"error": str(e), "stage": "verify_exception"},
+                )
+                continue
+
+            try:
+                acts = await action_service.execute_for_verification(
+                    exception_id=exc.id,
+                    finding=finding,
+                    verification=ver,
+                )
+                actions_executed += len(acts)
+            except Exception as e:
+                actions_failed += 1
+                logger.error(
+                    "Action execution failed for exception %s: %s", exc.id, e, exc_info=True
+                )
+                await audit_service.record(
+                    event_type=AuditEventType.SYSTEM,
+                    close_run_id=context.close_run_id,
+                    exception_id=exc.id,
+                    decision="ACTION_EXECUTION_FAILED",
+                    reason=f"Action execution failed: {e}",
+                    metadata_={"error": str(e), "stage": "execute_for_verification"},
+                )
 
         metrics = {
             "total_exceptions": len(exceptions),
@@ -412,12 +497,17 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
             "blocking_exceptions": blocking_count,
             "evidence_packs_generated": packs_generated,
             "investigations_completed": investigations_completed,
+            "investigations_failed": investigations_failed,
             "verifications_completed": verifications_completed,
+            "verifications_failed": verifications_failed,
             "actions_executed": actions_executed,
+            "actions_failed": actions_failed,
         }
         summary_text = (
             f"Reviewed {len(exceptions)} exceptions "
-            f"({investigations_completed} investigated, {verifications_completed} verified, {actions_executed} actions executed): "
+            f"({investigations_completed} investigated [{investigations_failed} failed], "
+            f"{verifications_completed} verified [{verifications_failed} failed], "
+            f"{actions_executed} actions executed [{actions_failed} failed]): "
             f"{auto_resolve_count} auto-resolvable, {human_review_count} require human review, "
             f"{cfo_escalation_count} CFO escalations, {blocking_count} blocking close completion."
         )

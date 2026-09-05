@@ -10,9 +10,12 @@ Implements:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
+
+import httpx
 
 from app.domain.enums import ExceptionType, Role
 from app.investigation.types import (
@@ -1551,3 +1554,111 @@ class MockLLMProvider(LLMProvider):
             )
 
         return finding
+
+
+class RealLLMInvestigationProvider(LLMProvider):
+    """External LLM-backed Investigation Analyst with structured output & citation validation.
+
+    Governance constraints (spec sections 5.2, 10, 11):
+    1. Read-Only / Zero Arithmetic Authority: Financial impact and currency come strictly from
+       the bounded EvidenceDossier, never invented or computed by LLM.
+    2. Zero Hallucination: Citations are validated strictly against the bounded EvidenceDossier.
+    3. Structured Schema: Outputs adhere strictly to InvestigationFinding.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o",
+        base_url: str | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
+        self.timeout_seconds = timeout_seconds
+
+    async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
+        from app.investigation.citation_validator import CitationValidator
+        from app.investigation.prompt import (
+            CFO_INVESTIGATOR_SYSTEM_PROMPT,
+            format_investigation_user_prompt,
+        )
+
+        dossier = request.dossier
+        user_prompt = format_investigation_user_prompt(
+            dossier=dossier,
+            questions=[
+                "Why was this exception triggered?",
+                "Which records support the finding?",
+                "Is this a genuine financial discrepancy or a timing/operational issue?",
+                "What is the likely root cause?",
+                "What evidence is missing?",
+                "Should this block the close?",
+                "Should this be escalated?",
+                "What should a controller review?",
+            ],
+        )
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": CFO_INVESTIGATOR_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = data["choices"][0]["message"]["content"]
+        finding_dict = json.loads(content)
+
+        # Zero arithmetic authority: Enforce that financial impact, currency, exception_id, and exception_type come strictly from dossier
+        finding_dict["exception_id"] = dossier.exception_id
+        finding_dict["exception_type"] = dossier.exception_type
+        finding_dict["financial_impact"] = dossier.financial_impact
+        finding_dict["currency"] = dossier.currency
+
+        finding = InvestigationFinding.model_validate(finding_dict)
+
+        # Citation validation: Zero hallucination check
+        validator = CitationValidator()
+        citation_res = validator.validate_finding(finding, dossier)
+        if not citation_res.is_valid or citation_res.hallucinated_citations:
+            raise ValueError(
+                f"LLM produced hallucinated citations: {citation_res.hallucinated_citations}"
+            )
+
+        return finding
+
+
+def get_default_llm_provider() -> LLMProvider:
+    """Return the configured investigation LLM provider with deterministic fallback."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    fallback = DeterministicInvestigationProvider()
+
+    if settings.llm_api_key and settings.llm_provider != "deterministic":
+        primary = RealLLMInvestigationProvider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+        return FallbackLLMProvider(primary_provider=primary, fallback_provider=fallback)
+
+    return fallback

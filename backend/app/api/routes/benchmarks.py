@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.benchmarks.runner import CFOBenchRunner, benchmark_repository
 from app.benchmarks.types import (

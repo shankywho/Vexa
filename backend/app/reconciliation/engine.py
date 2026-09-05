@@ -673,6 +673,7 @@ class DeterministicReconciliationEngine:
         results_by_source_id = defaultdict(list)
         results_by_source_num = defaultdict(list)
         results_by_matched_id = defaultdict(list)
+        results_by_matched_num = defaultdict(list)
 
         for r in summary.results:
             results_by_source_id[str(r.source_record_id)].append(r)
@@ -680,6 +681,8 @@ class DeterministicReconciliationEngine:
                 results_by_source_num[r.source_record_number].append(r)
             for m in r.matched_records:
                 results_by_matched_id[str(m.record_id)].append(r)
+                if m.record_number:
+                    results_by_matched_num[m.record_number].append(r)
 
         for scenario in ground_truth:
             s_id = scenario["scenario_id"]
@@ -696,6 +699,8 @@ class DeterministicReconciliationEngine:
                 candidate_results.extend(results_by_source_num[p_num])
             if p_id and p_id in results_by_matched_id:
                 candidate_results.extend(results_by_matched_id[p_id])
+            if p_num and p_num in results_by_matched_num:
+                candidate_results.extend(results_by_matched_num[p_num])
 
             is_detected = False
             best_match: ReconciliationItemResult | None = None

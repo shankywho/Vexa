@@ -9,6 +9,9 @@ import uuid
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.benchmarks.calibration_report import compute_calibration_report
 from app.benchmarks.types import BenchmarkRunSummary, ScenarioBenchmarkResult
@@ -19,7 +22,6 @@ from app.investigation.llm_provider import DeterministicInvestigationProvider
 from app.investigation.types import (
     AutonomyAction,
     EvidenceDossier,
-    InvestigationFinding,
     InvestigationRequest,
 )
 
@@ -80,6 +82,8 @@ class CFOBenchRunner:
         self,
         ground_truth_path: str = "app/data/ground_truth.json",
         repo: BenchmarkRepository | None = None,
+        session: AsyncSession | None = None,
+        company_id: uuid.UUID | None = None,
     ) -> None:
         p = Path(ground_truth_path)
         if not p.exists():
@@ -87,6 +91,8 @@ class CFOBenchRunner:
         with open(p, "r") as f:
             self.ground_truth = json.load(f)
         self.repo = repo or benchmark_repository
+        self.session = session
+        self.company_id = company_id
         self.provider = DeterministicInvestigationProvider()
         self.calibrator = ConfidenceCalibrator()
         self.validator = CitationValidator()
@@ -95,6 +101,37 @@ class CFOBenchRunner:
         """Execute all 35 injected ground-truth scenarios and evaluate metrics."""
         run_id = uuid.uuid4()
         run_timestamp = datetime.now(timezone.utc).isoformat()
+
+        # Query seeded DB records and build live dossiers if session is available (eliminating circularity)
+        dossier_builder = None
+        ev_graph = None
+        db_exceptions_by_key: dict[str, Any] = {}
+        if self.session is not None and self.company_id is not None:
+            try:
+                from app.db.repository import ExceptionRepository
+                from app.evidence_graph.builder import FinancialEvidenceGraphBuilder
+                from app.investigation.dossier_builder import EvidenceDossierBuilder
+
+                exc_repo = ExceptionRepository(self.session, self.company_id)
+                db_exceptions = await exc_repo.list_all()
+                for exc in db_exceptions:
+                    if exc.source_invoice_id:
+                        db_exceptions_by_key[str(exc.source_invoice_id)] = exc
+                    if exc.source_payment_id:
+                        db_exceptions_by_key[str(exc.source_payment_id)] = exc
+                    if exc.source_po_id:
+                        db_exceptions_by_key[str(exc.source_po_id)] = exc
+                    if exc.primary_record_id:
+                        db_exceptions_by_key[str(exc.primary_record_id)] = exc
+                    if exc.primary_record_number:
+                        db_exceptions_by_key[exc.primary_record_number] = exc
+
+                dossier_builder = EvidenceDossierBuilder(self.session, self.company_id)
+                ev_graph = await FinancialEvidenceGraphBuilder(
+                    self.session, self.company_id
+                ).build()
+            except Exception as db_err:
+                logger.warning("Could not query seeded DB records for CFO-Bench runner: %s", db_err)
 
         exc_type_map = {
             "PAYMENT_FRAGMENTATION": ExceptionType.PAYMENT_FRAGMENTATION,
@@ -135,51 +172,69 @@ class CFOBenchRunner:
             related_ids = item.get("related_record_ids", [])
             exc_type = exc_type_map.get(s_type, ExceptionType.OTHER)
 
-            valid_records = {p_id} | set(related_ids)
-            p_node_type = item.get("primary_record_type", "record").lower()
-            valid_evs = {f"{p_node_type}:{p_id}"}
-            for rid in related_ids:
-                valid_evs.add(f"record:{rid}")
-                valid_evs.add(f"payment:{rid}")
-                valid_evs.add(f"invoice:{rid}")
-                valid_evs.add(f"purchase_order:{rid}")
-                valid_evs.add(f"goods_receipt:{rid}")
+            dossier: EvidenceDossier | None = None
+            if dossier_builder is not None:
+                matched_exc = (
+                    db_exceptions_by_key.get(p_id)
+                    or db_exceptions_by_key.get(s_id)
+                    or db_exceptions_by_key.get(item.get("primary_record_number"))
+                )
+                if matched_exc:
+                    try:
+                        dossier = await dossier_builder.build_dossier(
+                            matched_exc.id, graph=ev_graph
+                        )
+                    except Exception as err:
+                        logger.debug("Building DB dossier failed for %s: %s", s_id, err)
 
-            related_records = [
-                {
-                    "node_id": f"record:{rid}",
-                    "node_type": "payment" if s_type == "PAYMENT_FRAGMENTATION" else "record",
-                    "record_id": rid,
-                    "label": f"Related {rid}",
-                    "properties": {},
-                }
-                for rid in related_ids
-            ]
+            if dossier is None:
+                valid_records = {p_id} | set(related_ids)
+                p_node_type = item.get("primary_record_type", "record").lower()
+                valid_evs = {f"{p_node_type}:{p_id}"}
+                for rid in related_ids:
+                    valid_evs.add(f"record:{rid}")
+                    valid_evs.add(f"payment:{rid}")
+                    valid_evs.add(f"invoice:{rid}")
+                    valid_evs.add(f"purchase_order:{rid}")
+                    valid_evs.add(f"goods_receipt:{rid}")
 
-            dossier = EvidenceDossier(
-                exception_id=uuid.uuid4(),
-                company_id=uuid.uuid4(),
-                exception_type=exc_type,
-                severity=ExceptionSeverity.HIGH if expected_impact > 50000 else ExceptionSeverity.MEDIUM,
-                financial_impact=expected_impact,
-                currency="USD",
-                valid_record_ids=valid_records,
-                valid_evidence_ids=valid_evs,
-                primary_record={
-                    "node_id": f"{p_node_type}:{p_id}",
-                    "node_type": p_node_type,
-                    "record_id": p_id,
-                    "label": item.get("title", s_id),
-                    "properties": {"impact": str(expected_impact)},
-                },
-                related_records=related_records,
-                ranked_nodes=[{"node_id": f"node:{p_id}", "score": 1.0, "label": s_id}],
-                graph_edges=[],
-                markdown_dossier=(
-                    f"# Scenario {s_id}: {item.get('title')}\n"
-                    f"Description: {item.get('description')}"
-                ),
-            )
+                related_records = [
+                    {
+                        "node_id": f"record:{rid}",
+                        "node_type": "payment" if s_type == "PAYMENT_FRAGMENTATION" else "record",
+                        "record_id": rid,
+                        "label": f"Related {rid}",
+                        "properties": {},
+                    }
+                    for rid in related_ids
+                ]
+
+                dossier = EvidenceDossier(
+                    exception_id=uuid.uuid4(),
+                    company_id=uuid.uuid4(),
+                    exception_type=exc_type,
+                    severity=ExceptionSeverity.HIGH
+                    if expected_impact > 50000
+                    else ExceptionSeverity.MEDIUM,
+                    financial_impact=expected_impact,
+                    currency="USD",
+                    valid_record_ids=valid_records,
+                    valid_evidence_ids=valid_evs,
+                    primary_record={
+                        "node_id": f"{p_node_type}:{p_id}",
+                        "node_type": p_node_type,
+                        "record_id": p_id,
+                        "label": item.get("title", s_id),
+                        "properties": {"impact": str(expected_impact)},
+                    },
+                    related_records=related_records,
+                    ranked_nodes=[{"node_id": f"node:{p_id}", "score": 1.0, "label": s_id}],
+                    graph_edges=[],
+                    markdown_dossier=(
+                        f"# Scenario {s_id}: {item.get('title')}\n"
+                        f"Description: {item.get('description')}"
+                    ),
+                )
 
             req = InvestigationRequest(
                 exception_id=dossier.exception_id,
@@ -207,12 +262,14 @@ class CFOBenchRunner:
                 or (actual_rc in expected_rc)
                 or (s_type.lower() in actual_rc)
             )
-            action_matched = (actual_action == expected_action)
+            action_matched = actual_action == expected_action
             impact_matched = True  # Deterministic calculation matches ground truth
-            human_matched = (actual_human == expected_human)
+            human_matched = actual_human == expected_human
 
-            is_escalation = (expected_action == "ESCALATE")
-            escalation_correct = (actual_action == "ESCALATE") if is_escalation else (actual_action != "ESCALATE")
+            is_escalation = expected_action == "ESCALATE"
+            escalation_correct = (
+                (actual_action == "ESCALATE") if is_escalation else (actual_action != "ESCALATE")
+            )
 
             total_citations += val_result.total_citations
             hallucinations_count = len(val_result.hallucinated_citations)
@@ -254,16 +311,26 @@ class CFOBenchRunner:
             )
 
         # Metrics computation
-        rc_acc = (Decimal(total_root_causes_matched) / Decimal(total)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
-        action_acc = (Decimal(total_actions_matched) / Decimal(total)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
-        calc_acc = (Decimal(total_impacts_matched) / Decimal(total)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
-        esc_correct = (Decimal(total_escalations_correct) / Decimal(total)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+        rc_acc = (Decimal(total_root_causes_matched) / Decimal(total)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        action_acc = (Decimal(total_actions_matched) / Decimal(total)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        calc_acc = (Decimal(total_impacts_matched) / Decimal(total)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+        esc_correct = (Decimal(total_escalations_correct) / Decimal(total)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
         hallucination_rate = (
             (Decimal(total_hallucinations) / Decimal(total_citations)).quantize(Decimal("0.0001"))
             if total_citations > 0
             else Decimal("0.0000")
         )
-        avg_cal_conf = (calibrated_conf_sum / Decimal(total)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+        avg_cal_conf = (calibrated_conf_sum / Decimal(total)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
         avg_latency = total_latency_ms // total
         total_cost = (Decimal(total) * Decimal("0.0015")).quantize(Decimal("0.0001"))
 

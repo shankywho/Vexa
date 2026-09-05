@@ -16,7 +16,7 @@ from app.analyst.types import (
     MaterialityFinding,
     VarianceItem,
 )
-from app.db.models.banking import BankAccount, BankTransaction
+from app.db.models.banking import BankTransaction
 from app.db.models.exception import ExceptionRecord
 from app.db.models.ledger import JournalEntry, JournalEntryLine, LedgerAccount
 from app.db.models.procurement import GoodsReceipt, Invoice, PurchaseOrder
@@ -58,9 +58,7 @@ class FinancialAnalystTools:
                 )
             )
             res = (await self.session.execute(stmt)).first()
-            total_debit, total_credit = (
-                res if res else (Decimal("0"), Decimal("0"))
-            )
+            total_debit, total_credit = res if res else (Decimal("0"), Decimal("0"))
 
             # Assets & Expenses are normal debit balances; Liabilities, Equity, Revenue are normal credit
             if acct.account_type in ("ASSET", "EXPENSE"):
@@ -74,7 +72,9 @@ class FinancialAnalystTools:
 
             pct = None
             if prior_bal != Decimal("0.00"):
-                pct = ((variance_amt / prior_bal) * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                pct = ((variance_amt / prior_bal) * 100).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
 
             is_material = abs(variance_amt) >= materiality_threshold
             explanation = ""
@@ -109,10 +109,14 @@ class FinancialAnalystTools:
             )
         ).all()
 
-        stmt = select(
-            BankTransaction.direction,
-            func.coalesce(func.sum(BankTransaction.amount), Decimal("0")),
-        ).where(BankTransaction.company_id == self.company_id).group_by(BankTransaction.direction)
+        stmt = (
+            select(
+                BankTransaction.direction,
+                func.coalesce(func.sum(BankTransaction.amount), Decimal("0")),
+            )
+            .where(BankTransaction.company_id == self.company_id)
+            .group_by(BankTransaction.direction)
+        )
         direction_sums = dict((await self.session.execute(stmt)).all())
 
         inflows = direction_sums.get(BankTransactionDirection.CREDIT, Decimal("0.00"))
@@ -154,7 +158,10 @@ class FinancialAnalystTools:
             ExceptionRecord.financial_impact > Decimal("50000.00"),
         )
         large_excs = (await self.session.scalars(risk_stmt)).all()
-        risk_items = [f"{e.type.value}: {e.financial_impact} {e.currency} ({e.root_cause or 'Unverified discrepancy'})" for e in large_excs]
+        risk_items = [
+            f"{e.type.value}: {e.financial_impact} {e.currency} ({e.root_cause or 'Unverified discrepancy'})"
+            for e in large_excs
+        ]
         high_risk_outflows = sum((e.financial_impact for e in large_excs), Decimal("0.00"))
 
         return CashImpactSummary(

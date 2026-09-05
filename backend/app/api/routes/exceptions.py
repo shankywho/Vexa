@@ -6,13 +6,11 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.service import ActionService
-from app.action.types import ActionType
 from app.api.dependencies import TenantContext, get_tenant_context
-from app.db.base import utcnow
 from app.db.models.exception import ExceptionRecord
 from app.db.repository import ExceptionRepository
 from app.db.session import get_session

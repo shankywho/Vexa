@@ -8,7 +8,6 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -339,4 +338,3 @@ class DemoRecordRequest(BaseModel):
     title: str
     description: str | None = None
     is_golden: bool = False
-

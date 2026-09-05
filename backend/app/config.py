@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     seed_deterministic: bool = True
     seed_random_seed: int = 42
 
+    # LLM Investigation Agent
+    llm_provider: str = Field(
+        default="deterministic", description="deterministic | openai | anthropic | gemini | custom"
+    )
+    llm_model: str = Field(default="gpt-4o", description="Model identifier for external LLM calls")
+    llm_api_key: str | None = Field(default=None, description="API key for external LLM calls")
+    llm_base_url: str | None = Field(default=None, description="Base URL for external LLM calls")
+    llm_timeout_seconds: float = Field(default=30.0, description="Timeout for external LLM calls")
+
 
 @lru_cache
 def get_settings() -> Settings:

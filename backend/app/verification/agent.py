@@ -10,12 +10,10 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.service import AuditService
-from app.db.models.agent import AgentRun, AgentStep
-from app.db.models.exception import ExceptionRecord
-from app.db.repository import ExceptionRepository
 from app.db.base import utcnow
-from app.domain.enums import AgentRunStatus, AuditEventType, AutonomyLevel
-from app.investigation.prompt import PROMPT_VERSION_ID
+from app.db.models.agent import AgentRun, AgentStep
+from app.db.repository import ExceptionRepository
+from app.domain.enums import AgentRunStatus, AuditEventType
 from app.verification.engine import (
     EvidenceCompletenessVerifier,
     IndependentCalculationVerifier,
@@ -46,7 +44,9 @@ class VerificationAgent:
         # 1. Load exception record
         exception = await self.exc_repo.get_by_id(request.exception_id)
         if not exception:
-            raise ValueError(f"Exception {request.exception_id} not found for company {self.company_id}")
+            raise ValueError(
+                f"Exception {request.exception_id} not found for company {self.company_id}"
+            )
 
         # 2. Initialize AgentRun
         run = AgentRun(
@@ -274,5 +274,26 @@ class VerificationAgent:
                 "latency_ms": total_latency_ms,
             },
         )
+
+        close_run_id = request.close_run_id or exception.close_run_id
+        if close_run_id:
+            try:
+                from app.streaming.bus import agent_event_bus
+
+                await agent_event_bus.publish(
+                    close_run_id,
+                    {
+                        "event": "verification_completed",
+                        "close_run_id": str(close_run_id),
+                        "exception_id": str(request.exception_id),
+                        "agent_run_id": str(run.id),
+                        "verified": is_verified,
+                        "recommended_autonomy": str(recommended_autonomy),
+                        "calibrated_confidence": str(calibrated_conf),
+                        "latency_ms": total_latency_ms,
+                    },
+                )
+            except Exception:
+                pass
 
         return result

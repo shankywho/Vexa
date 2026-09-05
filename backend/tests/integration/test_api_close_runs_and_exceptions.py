@@ -9,17 +9,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.generator import seed_financial_transactions
-from app.data.seed import seed_company
 from app.db.models.agent import AgentRun, AgentStep
-from app.db.models.close_run import CloseRun
 from app.db.models.exception import ExceptionAction, ExceptionRecord
 from app.domain.enums import (
     AgentRunStatus,
     AutonomyLevel,
-    CloseRunStatus,
-    CloseTaskStatus,
-    CloseTaskType,
     ExceptionSeverity,
     ExceptionStatus,
     ExceptionType,
@@ -72,13 +66,21 @@ async def test_close_runs_crud_and_workflow_api(client: AsyncClient, client_sess
     resp = await client.post(f"/api/close-runs/{close_run_id}/start", headers=headers)
     assert resp.status_code == 200
     started_run = resp.json()
-    assert started_run["status"] in ("RECONCILING", "INVESTIGATING", "WAITING_FOR_HUMAN", "READY_TO_CLOSE", "BLOCKED")
+    assert started_run["status"] in (
+        "RECONCILING",
+        "INVESTIGATING",
+        "WAITING_FOR_HUMAN",
+        "READY_TO_CLOSE",
+        "BLOCKED",
+    )
 
     # 7. GET /api/close-runs/{id}/tasks after start
     resp = await client.get(f"/api/close-runs/{close_run_id}/tasks", headers=headers)
     assert resp.status_code == 200
     updated_tasks = resp.json()
-    assert any(t["status"] in ("COMPLETED", "IN_PROGRESS", "PENDING", "BLOCKED") for t in updated_tasks)
+    assert any(
+        t["status"] in ("COMPLETED", "IN_PROGRESS", "PENDING", "BLOCKED") for t in updated_tasks
+    )
 
     # 8. GET /api/close-runs/{id}/exceptions
     resp = await client.get(f"/api/close-runs/{close_run_id}/exceptions", headers=headers)

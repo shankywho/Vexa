@@ -34,7 +34,13 @@ class ExceptionRouter:
         """Route a single exception to AUTO_RESOLVE, HUMAN_REVIEW, or CFO_ESCALATION."""
         pol = policy or self.policy
         impact = exception.financial_impact or Decimal("0.00")
-        conf = exception.confidence or Decimal("1.0000")
+        conf = (
+            exception.calibrated_confidence
+            if exception.calibrated_confidence is not None
+            else exception.confidence
+        )
+        if conf is None:
+            conf = Decimal("0.0000")
 
         # Collect linked evidence identifiers
         evidence_ids: list[str] = []
