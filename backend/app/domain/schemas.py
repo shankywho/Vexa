@@ -300,3 +300,43 @@ class ClosePackageRead(BaseModel):
     audit_events_count: int
     generated_at: datetime
 
+
+class DemoModeToggleRequest(BaseModel):
+    """Request schema for toggling demo execution mode."""
+
+    mode: str = Field(description="Execution mode: LIVE or REPLAY")
+    close_run_id: uuid.UUID | None = Field(default=None, description="Optional target close run ID")
+
+
+class DemoModeRead(BaseModel):
+    """Response schema for current demo execution mode."""
+
+    mode: str
+    close_run_id: uuid.UUID | None = None
+
+
+class DemoTraceRead(BaseModel):
+    """Response schema for a captured or golden demo trace."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    scenario_key: str
+    title: str
+    description: str | None = None
+    events: list[dict[str, Any]] = Field(default_factory=list)
+    total_steps: int
+    total_duration_ms: int
+    is_golden: bool
+    created_at: datetime
+
+
+class DemoRecordRequest(BaseModel):
+    """Request schema for recording a close run into a demo trace."""
+
+    close_run_id: uuid.UUID
+    scenario_key: str
+    title: str
+    description: str | None = None
+    is_golden: bool = False
+

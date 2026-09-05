@@ -21,6 +21,7 @@ venv/
 
 # Local data / logs
 *.log
+backend/app/data/benchmarks/*.json
 
 # OS
 .DS_Store

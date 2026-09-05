@@ -6,7 +6,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import agent_runs, audit, benchmarks, close_runs, companies, exceptions, health
+from app.api.routes import (
+    agent_runs,
+    audit,
+    benchmarks,
+    close_runs,
+    companies,
+    demo,
+    exceptions,
+    health,
+)
 from app.config import get_settings
 from app.db.session import dispose_engine
 
@@ -29,7 +38,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # API Routes (Spec Section 17)
+    # API Routes (Spec Section 17, 37)
     app.include_router(health.router, prefix=settings.api_prefix)
     app.include_router(companies.router, prefix=settings.api_prefix)
     app.include_router(close_runs.router, prefix=settings.api_prefix)
@@ -37,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_runs.router, prefix=settings.api_prefix)
     app.include_router(audit.router, prefix=settings.api_prefix)
     app.include_router(benchmarks.router, prefix=settings.api_prefix)
+    app.include_router(demo.router, prefix=settings.api_prefix)
 
     return app
 

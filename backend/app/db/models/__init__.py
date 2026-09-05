@@ -14,6 +14,7 @@ from app.db.models.audit import (
 from app.db.models.banking import BankAccount, BankTransaction, Payment
 from app.db.models.close_run import CloseRun, CloseTask
 from app.db.models.counterparty import Customer, Vendor
+from app.db.models.demo import DemoTrace
 from app.db.models.exception import (
     ExceptionAction,
     ExceptionEvidence,
@@ -49,6 +50,7 @@ __all__ = [
     "Company",
     "Contract",
     "Customer",
+    "DemoTrace",
     "ExceptionAction",
     "ExceptionEvidence",
     "ExceptionRecord",

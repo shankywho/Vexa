@@ -372,7 +372,7 @@ async def seed_financial_transactions(
     seed: int = 42,
     months: int = 3,
     fx_start: date | None = None,
-    save_ground_truth: bool = True,
+    save_ground_truth: bool = False,
 ) -> dict:
     """Seed the full multi-month financial transactions and ground truth exceptions.
 

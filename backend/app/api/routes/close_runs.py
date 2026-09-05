@@ -20,6 +20,7 @@ from app.close_workflow.controller import CloseWorkflowController
 from app.close_workflow.state_machine import CloseRunError
 from app.db.models.agent import AgentRun, AgentStep
 from app.db.models.close_run import CloseRun, CloseTask
+from app.db.models.demo import DemoTrace
 from app.db.models.exception import ExceptionRecord
 from app.db.repository import (
     AgentRunRepository,
@@ -28,6 +29,9 @@ from app.db.repository import (
     ExceptionRepository,
 )
 from app.db.session import get_session
+from app.demo.mode import DemoMode, demo_mode_manager
+from app.demo.trace_player import TracePlayer
+from app.demo.trace_recorder import seed_golden_traces
 from app.domain.enums import AuditEventType, CloseRunStatus
 from app.domain.schemas import (
     AuditEventRead,
@@ -187,14 +191,42 @@ async def get_close_run_audit(
 @router.get("/{id}/stream")
 async def stream_close_run(
     id: uuid.UUID,
+    trace_id: uuid.UUID | None = Query(default=None, description="Explicit trace ID to replay"),
+    playback_speed: float = Query(default=1.0, ge=0.1, le=100.0, description="Replay speed multiplier"),
+    simulate_delay: bool = Query(default=True, description="Whether to simulate delays during replay"),
     session: AsyncSession = Depends(get_session),
     tenant: TenantContext = Depends(get_tenant_context),
 ) -> StreamingResponse:
-    """Stream real-time agent activity, tool executions, and step updates via SSE."""
+    """Stream real-time agent activity, tool executions, and step updates via SSE.
+
+    Automatically switches to REPLAY mode if toggled via demo safety net or if trace_id is specified.
+    """
     run_repo = CloseRunRepository(session, company_id=tenant.company_id)
     close_run = await run_repo.get(id)
     if close_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Close run not found")
+
+    # Check demo replay mode (spec section 37)
+    mode = demo_mode_manager.get_mode(id)
+    if mode == DemoMode.REPLAY or trace_id is not None:
+        trace: DemoTrace | None = None
+        if trace_id is not None:
+            trace = await session.get(DemoTrace, trace_id)
+        if trace is None:
+            golden_traces = await seed_golden_traces(session)
+            trace = golden_traces[0] if golden_traces else None
+
+        if trace is not None:
+            player = TracePlayer(playback_speed=playback_speed, simulate_delay=simulate_delay)
+            return StreamingResponse(
+                player.play_trace(trace, close_run_id=str(id)),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
 
     async def event_generator():
         # 1. Emit initial connection event
