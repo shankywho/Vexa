@@ -130,6 +130,9 @@ class EvidenceDossier(BaseModel):
         clean_id = str(citation_id).strip()
         return clean_id in self.valid_record_ids or clean_id in self.valid_evidence_ids
 
+    def to_dict(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
+
 
 class InvestigationRequest(BaseModel):
     """Typed request initiating an exception investigation."""

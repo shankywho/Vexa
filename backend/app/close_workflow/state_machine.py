@@ -38,6 +38,8 @@ ALLOWED_CLOSE_RUN_TRANSITIONS: dict[CloseRunStatus, set[CloseRunStatus]] = {
     },
     CloseRunStatus.INVESTIGATING: {
         CloseRunStatus.VERIFYING,
+        CloseRunStatus.RESOLVING,
+        CloseRunStatus.FINAL_VERIFICATION,
         CloseRunStatus.WAITING_FOR_HUMAN,
         CloseRunStatus.FAILED,
         CloseRunStatus.BLOCKED,

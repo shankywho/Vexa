@@ -21,6 +21,7 @@ from sqlalchemy.orm import InstrumentedAttribute
 from app.db.base import Base
 from app.db.models.agent import AgentRun
 from app.db.models.banking import BankAccount, BankTransaction, Payment
+from app.db.models.close_run import CloseRun, CloseTask
 from app.db.models.counterparty import Customer, Vendor
 from app.db.models.exception import (
     ExceptionAction,
@@ -849,5 +850,56 @@ class ReversalActionRepository:
                 ReversalAction.exception_action_id == action_id,
                 ExceptionRecord.company_id == self.company_id,
             )
+        )
+        return await self.session.scalar(stmt)
+
+
+class CloseRunRepository(TenantRepository):
+    """Tenant-scoped repository for CloseRun records."""
+
+    model = CloseRun
+
+    async def get_with_tasks(self, close_run_id: uuid.UUID) -> CloseRun | None:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(CloseRun)
+            .options(selectinload(CloseRun.tasks))
+            .where(*self._tenant_filter(CloseRun.id == close_run_id))
+        )
+        return await self.session.scalar(stmt)
+
+    async def list_close_runs(self, limit: int = 100, offset: int = 0) -> Sequence[CloseRun]:
+        stmt = (
+            select(CloseRun)
+            .where(*self._tenant_filter())
+            .order_by(CloseRun.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+
+class CloseTaskRepository:
+    """Tenant-scoped repository for CloseTask records."""
+
+    def __init__(self, session: AsyncSession, company_id: uuid.UUID) -> None:
+        self.session = session
+        self.company_id = company_id
+
+    async def list_by_close_run(self, close_run_id: uuid.UUID) -> Sequence[CloseTask]:
+        stmt = (
+            select(CloseTask)
+            .join(CloseRun, CloseTask.close_run_id == CloseRun.id)
+            .where(CloseRun.company_id == self.company_id, CloseTask.close_run_id == close_run_id)
+            .order_by(CloseTask.created_at.asc())
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def get_task(self, task_id: uuid.UUID) -> CloseTask | None:
+        stmt = (
+            select(CloseTask)
+            .join(CloseRun, CloseTask.close_run_id == CloseRun.id)
+            .where(CloseRun.company_id == self.company_id, CloseTask.id == task_id)
         )
         return await self.session.scalar(stmt)

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import audit, companies, health
+from app.api.routes import agent_runs, audit, close_runs, companies, exceptions, health
 from app.config import get_settings
 from app.db.session import dispose_engine
 
@@ -29,10 +29,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Foundation routers (Phase 1). Additional routes (close-runs,
-    # exceptions, agents, benchmarks, demo) arrive in later phases.
+    # API Routes (Spec Section 17)
     app.include_router(health.router, prefix=settings.api_prefix)
     app.include_router(companies.router, prefix=settings.api_prefix)
+    app.include_router(close_runs.router, prefix=settings.api_prefix)
+    app.include_router(exceptions.router, prefix=settings.api_prefix)
+    app.include_router(agent_runs.router, prefix=settings.api_prefix)
     app.include_router(audit.router, prefix=settings.api_prefix)
 
     return app

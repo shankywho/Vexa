@@ -372,6 +372,7 @@ async def seed_financial_transactions(
     seed: int = 42,
     months: int = 3,
     fx_start: date | None = None,
+    save_ground_truth: bool = True,
 ) -> dict:
     """Seed the full multi-month financial transactions and ground truth exceptions.
 
@@ -2172,10 +2173,11 @@ async def seed_financial_transactions(
     await session.flush()
 
     # Save ground_truth.json
-    data_dir = Path(__file__).resolve().parent
-    gt_file = data_dir / "ground_truth.json"
-    with open(gt_file, "w") as f:
-        json.dump(ground_truth, f, indent=2)
+    if save_ground_truth:
+        data_dir = Path(__file__).resolve().parent
+        gt_file = data_dir / "ground_truth.json"
+        with open(gt_file, "w") as f:
+            json.dump(ground_truth, f, indent=2)
 
     return {
         "status": "seeded",

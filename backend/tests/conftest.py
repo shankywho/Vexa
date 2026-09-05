@@ -76,10 +76,17 @@ async def client(engine: AsyncEngine) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_session] = override_get_session
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        ac.session = session  # type: ignore[attr-defined]
         yield ac
     app.dependency_overrides.clear()
     await transaction.rollback()
     await connection.close()
+
+
+@pytest.fixture
+def client_session(client: AsyncClient) -> AsyncSession:
+    """Session sharing the same connection/transaction as client."""
+    return getattr(client, "session")
 
 
 @pytest.fixture
