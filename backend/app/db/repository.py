@@ -22,7 +22,12 @@ from app.db.base import Base
 from app.db.models.agent import AgentRun
 from app.db.models.banking import BankAccount, BankTransaction, Payment
 from app.db.models.counterparty import Customer, Vendor
-from app.db.models.exception import ExceptionRecord, ReconciliationResult
+from app.db.models.exception import (
+    ExceptionAction,
+    ExceptionRecord,
+    ReconciliationResult,
+    ReversalAction,
+)
 from app.db.models.fx import FxRate
 from app.db.models.ledger import JournalEntry, JournalEntryLine, LedgerAccount
 from app.db.models.procurement import (
@@ -73,6 +78,10 @@ class TenantRepository:
             self._company_column == self.company_id, self.model.id == obj_id
         )
         return await self.session.scalar(stmt)
+
+    async def get_by_id(self, obj_id: uuid.UUID) -> Base | None:
+        """Alias for get(obj_id)."""
+        return await self.get(obj_id)
 
     async def list(
         self, *criteria, limit: int = 100, offset: int = 0, order_by: str | None = None
@@ -702,3 +711,143 @@ class AgentRunRepository(TenantRepository):
             .limit(limit)
         )
         return (await self.session.scalars(stmt)).all()
+
+
+class ExceptionActionRepository:
+    """Repository for managing ExceptionAction records with tenant isolation."""
+
+    def __init__(self, session: AsyncSession, company_id: uuid.UUID) -> None:
+        self.session = session
+        self.company_id = company_id
+
+    async def create(
+        self,
+        exception_id: uuid.UUID,
+        action_type: str,
+        status: str,
+        payload: dict | str | None = None,
+        actor: str | None = None,
+        executed_at: datetime | None = None,
+    ) -> ExceptionAction:
+        stmt = select(ExceptionRecord.id).where(
+            ExceptionRecord.id == exception_id,
+            ExceptionRecord.company_id == self.company_id,
+        )
+        if not await self.session.scalar(stmt):
+            raise ValueError(f"Exception {exception_id} does not belong to company {self.company_id}")
+
+        action = ExceptionAction(
+            exception_id=exception_id,
+            action_type=action_type,
+            status=status,
+            actor=actor,
+            executed_at=executed_at,
+        )
+        action.payload = payload
+        self.session.add(action)
+        await self.session.flush()
+        await self.session.refresh(action)
+        return action
+
+    async def get_by_id(self, action_id: uuid.UUID) -> ExceptionAction | None:
+        stmt = (
+            select(ExceptionAction)
+            .join(ExceptionRecord, ExceptionAction.exception_id == ExceptionRecord.id)
+            .where(
+                ExceptionAction.id == action_id,
+                ExceptionRecord.company_id == self.company_id,
+            )
+        )
+        return await self.session.scalar(stmt)
+
+    async def list_by_exception(
+        self, exception_id: uuid.UUID, limit: int = 50
+    ) -> Sequence[ExceptionAction]:
+        stmt = (
+            select(ExceptionAction)
+            .join(ExceptionRecord, ExceptionAction.exception_id == ExceptionRecord.id)
+            .where(
+                ExceptionAction.exception_id == exception_id,
+                ExceptionRecord.company_id == self.company_id,
+            )
+            .order_by(ExceptionAction.created_at.desc())
+            .limit(limit)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_staged(self, exception_id: uuid.UUID) -> Sequence[ExceptionAction]:
+        stmt = (
+            select(ExceptionAction)
+            .join(ExceptionRecord, ExceptionAction.exception_id == ExceptionRecord.id)
+            .where(
+                ExceptionAction.exception_id == exception_id,
+                ExceptionAction.status == "STAGED",
+                ExceptionRecord.company_id == self.company_id,
+            )
+            .order_by(ExceptionAction.created_at.asc())
+        )
+        return (await self.session.scalars(stmt)).all()
+
+
+class ReversalActionRepository:
+    """Repository for managing ReversalAction records with tenant isolation."""
+
+    def __init__(self, session: AsyncSession, company_id: uuid.UUID) -> None:
+        self.session = session
+        self.company_id = company_id
+
+    async def create(
+        self,
+        exception_action_id: uuid.UUID,
+        exception_id: uuid.UUID,
+        reason: str | None,
+        reversed_by: str | None,
+        reversed_at: datetime | None = None,
+    ) -> ReversalAction:
+        from app.db.base import utcnow
+
+        # Verify tenant boundary
+        stmt = select(ExceptionRecord.id).where(
+            ExceptionRecord.id == exception_id,
+            ExceptionRecord.company_id == self.company_id,
+        )
+        if not await self.session.scalar(stmt):
+            raise ValueError(f"Exception {exception_id} does not belong to company {self.company_id}")
+
+        reversal = ReversalAction(
+            exception_action_id=exception_action_id,
+            exception_id=exception_id,
+            reason=reason,
+            reversed_by=reversed_by,
+            reversed_at=reversed_at or utcnow(),
+        )
+        self.session.add(reversal)
+        await self.session.flush()
+        await self.session.refresh(reversal)
+        return reversal
+
+    async def list_by_exception(
+        self, exception_id: uuid.UUID, limit: int = 50
+    ) -> Sequence[ReversalAction]:
+        stmt = (
+            select(ReversalAction)
+            .join(ExceptionRecord, ReversalAction.exception_id == ExceptionRecord.id)
+            .where(
+                ReversalAction.exception_id == exception_id,
+                ExceptionRecord.company_id == self.company_id,
+            )
+            .order_by(ReversalAction.reversed_at.desc())
+            .limit(limit)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def get_by_action_id(self, action_id: uuid.UUID) -> ReversalAction | None:
+        stmt = (
+            select(ReversalAction)
+            .join(ExceptionRecord, ReversalAction.exception_id == ExceptionRecord.id)
+            .where(
+                ReversalAction.exception_action_id == action_id,
+                ExceptionRecord.company_id == self.company_id,
+            )
+        )
+        return await self.session.scalar(stmt)

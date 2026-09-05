@@ -30,7 +30,10 @@ from app.domain.enums import (
 )
 from app.evidence_graph.builder import FinancialEvidenceGraphBuilder
 from app.evidence_graph.graph import FinancialEvidenceGraph
-from app.reconciliation.engine import DeterministicReconciliationEngine
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.reconciliation.engine import DeterministicReconciliationEngine
 from app.reconciliation.schemas import ReconciliationRunSummary, ReconciliationType
 
 
@@ -356,24 +359,48 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
         cfo_escalation_count = sum(1 for d in decisions if d.routing == "CFO_ESCALATION")
         blocking_count = sum(1 for d in decisions if d.is_blocking)
 
-        # Generate evidence packs and execute autonomous investigations for sample exceptions
+        # Generate evidence packs, investigate, verify, and stage actions for evaluation sample
+        from app.action.service import ActionService
         from app.investigation.service import InvestigationService
+        from app.verification.service import VerificationService
 
         investigation_service = InvestigationService(context.session, context.company_id)
+        verification_service = VerificationService(context.session, context.company_id)
+        action_service = ActionService(context.session, context.company_id)
+
         packs_generated = 0
         investigations_completed = 0
-        for exc in exceptions[:10]:  # generate packs and investigate evaluation sample
+        verifications_completed = 0
+        actions_executed = 0
+
+        for exc in exceptions[:10]:  # generate packs, investigate, verify, act
             await pack_router.generate_evidence_pack(
                 context.session, context.company_id, exc, ev_graph
             )
             packs_generated += 1
             try:
-                await investigation_service.investigate_exception(
+                finding = await investigation_service.investigate_exception(
                     exception_id=exc.id,
                     policy=context.policy,
                     graph=ev_graph,
                 )
                 investigations_completed += 1
+                try:
+                    ver = await verification_service.verify_exception(
+                        exception_id=exc.id,
+                        policy=context.policy,
+                        graph=ev_graph,
+                        finding=finding,
+                    )
+                    verifications_completed += 1
+                    acts = await action_service.execute_for_verification(
+                        exception_id=exc.id,
+                        finding=finding,
+                        verification=ver,
+                    )
+                    actions_executed += len(acts)
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -385,10 +412,12 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
             "blocking_exceptions": blocking_count,
             "evidence_packs_generated": packs_generated,
             "investigations_completed": investigations_completed,
+            "verifications_completed": verifications_completed,
+            "actions_executed": actions_executed,
         }
         summary_text = (
             f"Reviewed {len(exceptions)} exceptions "
-            f"({investigations_completed} investigated by CFO Agent): "
+            f"({investigations_completed} investigated, {verifications_completed} verified, {actions_executed} actions executed): "
             f"{auto_resolve_count} auto-resolvable, {human_review_count} require human review, "
             f"{cfo_escalation_count} CFO escalations, {blocking_count} blocking close completion."
         )

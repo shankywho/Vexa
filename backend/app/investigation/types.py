@@ -118,6 +118,12 @@ class EvidenceDossier(BaseModel):
     ranked_nodes: list[dict[str, Any]] = Field(default_factory=list)
     graph_edges: list[dict[str, Any]] = Field(default_factory=list)
     markdown_dossier: str = ""
+    invoices: list[Any] = Field(default_factory=list)
+    purchase_orders: list[Any] = Field(default_factory=list)
+    goods_receipts: list[Any] = Field(default_factory=list)
+    payments: list[Any] = Field(default_factory=list)
+    bank_transactions: list[Any] = Field(default_factory=list)
+    journal_entries: list[Any] = Field(default_factory=list)
 
     def is_valid_citation(self, citation_id: str) -> bool:
         """Verify whether a cited record or evidence ID exists in the bounded dossier."""
@@ -174,6 +180,17 @@ class InvestigationFinding(BaseModel):
     executive_summary: str = ""
     markdown_dossier: str = ""
     agent_run_id: uuid.UUID | None = None
+
+    @property
+    def cited_record_ids(self) -> list[str]:
+        """List of all unique record IDs cited in facts."""
+        seen: set[str] = set()
+        res: list[str] = []
+        for f in self.facts:
+            if f.record_id and f.record_id not in seen:
+                seen.add(f.record_id)
+                res.append(f.record_id)
+        return res
 
     def to_dict(self) -> dict[str, Any]:
         """Convert finding to JSON-serializable dictionary."""

@@ -45,7 +45,6 @@ from app.domain.enums import (
     ExceptionStatus,
 )
 from app.evidence_graph.graph import FinancialEvidenceGraph
-from app.reconciliation.engine import DeterministicReconciliationEngine
 from app.reconciliation.schemas import ReconciliationRunSummary
 
 
@@ -60,6 +59,8 @@ class CloseWorkflowController:
         registry: TaskExecutorRegistry | None = None,
         audit_service: AuditService | None = None,
     ) -> None:
+        from app.reconciliation.engine import DeterministicReconciliationEngine
+
         self.session = session
         self.company_id = company_id
         self.policy = policy or ClosePolicy()
@@ -491,4 +492,115 @@ class CloseWorkflowController:
             policy=self.policy,
             provider=provider,
             graph=self._evidence_graph,
+        )
+
+    async def verify_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        finding: Any | None = None,
+    ) -> Any:
+        """Independently verify an exception using the Verification Agent."""
+        from app.verification.service import VerificationService
+
+        await self._require_company()
+        service = VerificationService(self.session, self.company_id)
+        return await service.verify_exception(
+            exception_id=exception_id,
+            policy=self.policy,
+            graph=self._evidence_graph,
+            finding=finding,
+        )
+
+    async def execute_actions_for_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        finding: Any | None = None,
+        verification: Any | None = None,
+    ) -> Any:
+        """Execute autonomous actions for an exception via Action Agent."""
+        from app.action.service import ActionService
+        from app.investigation.service import InvestigationService
+        from app.verification.service import VerificationService
+
+        await self._require_company()
+        if finding is None:
+            inv_service = InvestigationService(self.session, self.company_id)
+            finding = await inv_service.investigate_exception(
+                exception_id=exception_id, policy=self.policy, graph=self._evidence_graph
+            )
+        if verification is None:
+            ver_service = VerificationService(self.session, self.company_id)
+            verification = await ver_service.verify_exception(
+                exception_id=exception_id,
+                policy=self.policy,
+                graph=self._evidence_graph,
+                finding=finding,
+            )
+
+        act_service = ActionService(self.session, self.company_id)
+        return await act_service.execute_for_verification(
+            exception_id=exception_id, finding=finding, verification=verification
+        )
+
+    async def approve_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        actor: str = "controller",
+        notes: str | None = None,
+    ) -> Any:
+        """Human approval of an exception resolution."""
+        from app.action.service import ActionService
+
+        await self._require_company()
+        service = ActionService(self.session, self.company_id)
+        return await service.approve_exception(exception_id=exception_id, actor=actor, notes=notes)
+
+    async def reject_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        actor: str = "controller",
+        notes: str | None = None,
+    ) -> Any:
+        """Human rejection of an exception resolution."""
+        from app.action.service import ActionService
+
+        await self._require_company()
+        service = ActionService(self.session, self.company_id)
+        return await service.reject_exception(exception_id=exception_id, actor=actor, notes=notes)
+
+    async def escalate_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        target_role: str = "CFO",
+        reason: str | None = None,
+        actor: str = "controller",
+    ) -> Any:
+        """Escalate an exception to senior role."""
+        from app.action.service import ActionService
+
+        await self._require_company()
+        service = ActionService(self.session, self.company_id)
+        return await service.escalate_exception(
+            exception_id=exception_id, target_role=target_role, reason=reason, actor=actor
+        )
+
+    async def reverse_action(
+        self,
+        action_id: uuid.UUID,
+        *,
+        reason: str,
+        reversed_by: str = "controller",
+    ) -> Any:
+        """Roll back an executed or staged action (spec section 13.2)."""
+        from app.action.service import ActionService
+
+        await self._require_company()
+        service = ActionService(self.session, self.company_id)
+        return await service.reverse_action(
+            action_id=action_id, reason=reason, reversed_by=reversed_by
         )

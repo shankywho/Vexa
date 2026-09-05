@@ -114,11 +114,33 @@ class ExceptionAction(UUIDPkMixin, TimestampMixin, Base):
     )
     action_type: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # STAGED | EXECUTED | REVERSED
-    payload: Mapped[dict | None] = mapped_column("payload_json", Text)
+    payload_json: Mapped[str | None] = mapped_column("payload_json", Text)
     actor: Mapped[str | None] = mapped_column(String(255))
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     exception_record: Mapped[ExceptionRecord] = relationship(back_populates="actions")
+
+    @property
+    def payload(self) -> dict | None:
+        if not self.payload_json:
+            return None
+        import json
+
+        try:
+            return json.loads(self.payload_json)
+        except Exception:
+            return None
+
+    @payload.setter
+    def payload(self, value: dict | str | None) -> None:
+        if value is None:
+            self.payload_json = None
+        elif isinstance(value, str):
+            self.payload_json = value
+        else:
+            import json
+
+            self.payload_json = json.dumps(value, default=str)
 
 
 class ReversalAction(UUIDPkMixin, TimestampMixin, Base):
@@ -135,6 +157,8 @@ class ReversalAction(UUIDPkMixin, TimestampMixin, Base):
     reason: Mapped[str | None] = mapped_column(Text)
     reversed_by: Mapped[str | None] = mapped_column(String(255))
     reversed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    action: Mapped[ExceptionAction] = relationship()
 
 
 class ReconciliationResult(UUIDPkMixin, TimestampMixin, Base):

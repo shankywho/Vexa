@@ -85,6 +85,38 @@ class AuditService:
         await self.session.flush()
         return event
 
+    async def record_event(
+        self,
+        *,
+        event_type: AuditEventType,
+        actor: str | None = None,
+        entity_type: str | None = None,
+        entity_id: uuid.UUID | None = None,
+        payload: dict | None = None,
+        agent_name: str | None = None,
+        decision: str | None = None,
+        reason: str | None = None,
+        financial_impact: Decimal | str | None = None,
+        currency: str | None = None,
+        confidence: Decimal | None = None,
+        calibrated_confidence: Decimal | None = None,
+    ) -> AuditEvent:
+        """Convenience method for recording an event by entity and payload."""
+        exception_id = entity_id if entity_type == "exception" else None
+        return await self.record(
+            event_type=event_type,
+            actor=actor,
+            agent_name=agent_name,
+            exception_id=exception_id,
+            decision=decision,
+            reason=reason,
+            financial_impact=financial_impact,
+            currency=currency,
+            confidence=confidence,
+            calibrated_confidence=calibrated_confidence,
+            metadata_=payload,
+        )
+
     async def list(
         self,
         *,
