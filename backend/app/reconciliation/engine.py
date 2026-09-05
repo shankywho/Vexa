@@ -23,7 +23,12 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.banking import BankTransaction, Payment
 from app.db.models.counterparty import Vendor
-from app.db.models.exception import ReconciliationMatch, ReconciliationResult
+from app.db.models.exception import (
+    ExceptionEvidence,
+    ExceptionRecord,
+    ReconciliationMatch,
+    ReconciliationResult,
+)
 from app.db.models.ledger import JournalEntry, JournalEntryLine
 from app.db.models.procurement import (
     GoodsReceipt,
@@ -32,6 +37,7 @@ from app.db.models.procurement import (
 )
 from app.db.repository import (
     BankTransactionRepository,
+    ExceptionRepository,
     GoodsReceiptRepository,
     InvoiceRepository,
     JournalEntryRepository,
@@ -40,7 +46,13 @@ from app.db.repository import (
     ReconciliationRepository,
     VendorRepository,
 )
-from app.domain.enums import ExceptionType, ReconciliationStatus
+from app.domain.enums import (
+    AutonomyLevel,
+    ExceptionSeverity,
+    ExceptionStatus,
+    ExceptionType,
+    ReconciliationStatus,
+)
 from app.reconciliation.config import ReconciliationConfig
 from app.reconciliation.rules import (
     evaluate_three_way_match,
@@ -84,6 +96,7 @@ class DeterministicReconciliationEngine:
         self.je_repo = JournalEntryRepository(session, company_id)
         self.vendor_repo = VendorRepository(session, company_id)
         self.rec_repo = ReconciliationRepository(session, company_id)
+        self.exc_repo = ExceptionRepository(session, company_id)
 
     async def load_financial_records(self) -> dict[str, Any]:
         """Batch-load tenant-scoped records with eager relationships for reconciliation."""
@@ -533,6 +546,105 @@ class DeterministicReconciliationEngine:
                     match_type="EXACT" if not item.fx_conversion_applied else "FX",
                 )
                 self.session.add(match_row)
+
+            # Persist exception record and supporting evidence when exception_type is flagged
+            if item.exception_type is not None:
+                source_inv_id = (
+                    item.source_record_id if item.source_record_type == "INVOICE" else None
+                )
+                source_po_id = (
+                    item.source_record_id
+                    if item.source_record_type in ("PURCHASE_ORDER", "PO")
+                    else None
+                )
+                source_receipt_id = (
+                    item.source_record_id
+                    if item.source_record_type in ("GOODS_RECEIPT", "RECEIPT")
+                    else None
+                )
+                source_pmt_id = (
+                    item.source_record_id if item.source_record_type == "PAYMENT" else None
+                )
+                source_bt_id = (
+                    item.source_record_id
+                    if item.source_record_type in ("BANK_TRANSACTION", "BANK_TX")
+                    else None
+                )
+                source_je_id = (
+                    item.source_record_id
+                    if item.source_record_type in ("JOURNAL_ENTRY", "JE")
+                    else None
+                )
+
+                for m in item.matched_records:
+                    if not source_po_id and m.record_type in ("PURCHASE_ORDER", "PO"):
+                        source_po_id = m.record_id
+                    if not source_receipt_id and m.record_type in ("GOODS_RECEIPT", "RECEIPT"):
+                        source_receipt_id = m.record_id
+                    if not source_pmt_id and m.record_type == "PAYMENT":
+                        source_pmt_id = m.record_id
+                    if not source_inv_id and m.record_type == "INVOICE":
+                        source_inv_id = m.record_id
+
+                exc_rec = ExceptionRecord(
+                    company_id=item.company_id,
+                    close_run_id=summary.close_run_id,
+                    type=item.exception_type,
+                    severity=(
+                        ExceptionSeverity.HIGH
+                        if item.financial_impact > Decimal("1000")
+                        else ExceptionSeverity.MEDIUM
+                    ),
+                    status=ExceptionStatus.OPEN,
+                    financial_impact=item.financial_impact,
+                    currency=item.currencies.get("base", "USD") if item.currencies else "USD",
+                    confidence=item.confidence,
+                    root_cause=item.deterministic_reason,
+                    recommended_action="Review transaction evidence and resolve discrepancy.",
+                    autonomy_level=AutonomyLevel.OBSERVE,
+                    source_invoice_id=source_inv_id,
+                    source_po_id=source_po_id,
+                    source_receipt_id=source_receipt_id,
+                    source_payment_id=source_pmt_id,
+                    source_bank_txn_id=source_bt_id,
+                    source_journal_entry_id=source_je_id,
+                )
+                self.session.add(exc_rec)
+                await self.session.flush()
+
+                # Add reconciliation result as evidence
+                self.session.add(
+                    ExceptionEvidence(
+                        exception_id=exc_rec.id,
+                        evidence_type="RECONCILIATION_RESULT",
+                        evidence_ref_id=rec_res.id,
+                        description=(
+                            f"Reconciliation {item.reconciliation_type} flagged "
+                            f"{item.exception_type.value}"
+                        ),
+                    )
+                )
+                # Add matched records as evidence
+                for m in item.matched_records:
+                    rec_ref_label = m.record_number or str(m.record_id)
+                    self.session.add(
+                        ExceptionEvidence(
+                            exception_id=exc_rec.id,
+                            evidence_type=m.record_type,
+                            evidence_ref_id=m.record_id,
+                            description=f"Matched record ({m.role}): {rec_ref_label}",
+                        )
+                    )
+                # Add explicit evidence_ids
+                for ev_id in item.evidence_ids:
+                    self.session.add(
+                        ExceptionEvidence(
+                            exception_id=exc_rec.id,
+                            evidence_type="SUPPORTING_RECORD",
+                            evidence_ref_id=ev_id,
+                            description="Supporting evidence identified during reconciliation",
+                        )
+                    )
 
         await self.session.flush()
 

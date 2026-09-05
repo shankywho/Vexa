@@ -21,7 +21,7 @@ from sqlalchemy.orm import InstrumentedAttribute
 from app.db.base import Base
 from app.db.models.banking import BankAccount, BankTransaction, Payment
 from app.db.models.counterparty import Customer, Vendor
-from app.db.models.exception import ReconciliationResult
+from app.db.models.exception import ExceptionRecord, ReconciliationResult
 from app.db.models.fx import FxRate
 from app.db.models.ledger import JournalEntry, JournalEntryLine, LedgerAccount
 from app.db.models.procurement import (
@@ -32,7 +32,12 @@ from app.db.models.procurement import (
     PurchaseOrder,
 )
 from app.db.models.tenancy import Company
-from app.domain.enums import ReconciliationStatus
+from app.domain.enums import (
+    ExceptionSeverity,
+    ExceptionStatus,
+    ExceptionType,
+    ReconciliationStatus,
+)
 
 
 class TenantBoundaryError(ValueError):
@@ -542,5 +547,94 @@ class ReconciliationRepository(TenantRepository):
         if close_run_id is not None:
             criteria.append(ReconciliationResult.close_run_id == close_run_id)
         stmt = delete(ReconciliationResult).where(*criteria)
+        res = await self.session.execute(stmt)
+        return int(res.rowcount or 0)
+
+
+class ExceptionRepository(TenantRepository):
+    """Repository for financial exceptions and supporting evidence."""
+
+    model = ExceptionRecord
+
+    async def get_with_evidence(self, exception_id: uuid.UUID) -> ExceptionRecord | None:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter(ExceptionRecord.id == exception_id))
+        )
+        return await self.session.scalar(stmt)
+
+    async def list_by_type(
+        self, exception_type: ExceptionType, limit: int = 100, offset: int = 0
+    ) -> Sequence[ExceptionRecord]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter(ExceptionRecord.type == exception_type))
+            .order_by(ExceptionRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def list_by_status(
+        self, status: ExceptionStatus, limit: int = 100, offset: int = 0
+    ) -> Sequence[ExceptionRecord]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter(ExceptionRecord.status == status))
+            .order_by(ExceptionRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def list_by_severity(
+        self, severity: ExceptionSeverity, limit: int = 100, offset: int = 0
+    ) -> Sequence[ExceptionRecord]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter(ExceptionRecord.severity == severity))
+            .order_by(ExceptionRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def list_all(self, limit: int = 1000, offset: int = 0) -> Sequence[ExceptionRecord]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter())
+            .order_by(ExceptionRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def clear_exceptions(self, close_run_id: uuid.UUID | None = None) -> int:
+        """Clear previous exceptions for tenant, optionally by close run."""
+        from sqlalchemy import delete
+
+        criteria = [ExceptionRecord.company_id == self.company_id]
+        if close_run_id is not None:
+            criteria.append(ExceptionRecord.close_run_id == close_run_id)
+        stmt = delete(ExceptionRecord).where(*criteria)
         res = await self.session.execute(stmt)
         return int(res.rowcount or 0)
