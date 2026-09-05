@@ -6,6 +6,7 @@ import json
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -472,4 +473,22 @@ class CloseWorkflowController:
             blockers=package_dict["blockers"],
             audit_events_count=package_dict["audit_events_count"],
             generated_at=datetime.fromisoformat(package_dict["generated_at"]),
+        )
+
+    async def investigate_exception(
+        self,
+        exception_id: uuid.UUID,
+        *,
+        provider: Any | None = None,
+    ) -> Any:
+        """Investigate a specific exception using the CFO Investigation Agent."""
+        from app.investigation.service import InvestigationService
+
+        await self._require_company()
+        service = InvestigationService(self.session, self.company_id)
+        return await service.investigate_exception(
+            exception_id=exception_id,
+            policy=self.policy,
+            provider=provider,
+            graph=self._evidence_graph,
         )

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.db.base import Base
+from app.db.models.agent import AgentRun
 from app.db.models.banking import BankAccount, BankTransaction, Payment
 from app.db.models.counterparty import Customer, Vendor
 from app.db.models.exception import ExceptionRecord, ReconciliationResult
@@ -654,3 +655,50 @@ class ExceptionRepository(TenantRepository):
         stmt = delete(ExceptionRecord).where(*criteria)
         res = await self.session.execute(stmt)
         return int(res.rowcount or 0)
+
+
+class AgentRunRepository(TenantRepository):
+    """Tenant-scoped repository for AgentRun records."""
+
+    model = AgentRun
+
+    async def get_with_steps(self, run_id: uuid.UUID) -> AgentRun | None:
+        """Get an agent run with all its execution steps."""
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(AgentRun)
+            .options(selectinload(AgentRun.steps))
+            .where(*self._tenant_filter(AgentRun.id == run_id))
+        )
+        return await self.session.scalar(stmt)
+
+    async def list_by_exception(
+        self, exception_id: uuid.UUID, limit: int = 50
+    ) -> Sequence[AgentRun]:
+        """List agent runs for a specific exception."""
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(AgentRun)
+            .options(selectinload(AgentRun.steps))
+            .where(*self._tenant_filter(AgentRun.exception_id == exception_id))
+            .order_by(AgentRun.created_at.desc())
+            .limit(limit)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_by_close_run(
+        self, close_run_id: uuid.UUID, limit: int = 100
+    ) -> Sequence[AgentRun]:
+        """List agent runs for a close run."""
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(AgentRun)
+            .options(selectinload(AgentRun.steps))
+            .where(*self._tenant_filter(AgentRun.close_run_id == close_run_id))
+            .order_by(AgentRun.created_at.desc())
+            .limit(limit)
+        )
+        return (await self.session.scalars(stmt)).all()

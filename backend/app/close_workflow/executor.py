@@ -356,13 +356,26 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
         cfo_escalation_count = sum(1 for d in decisions if d.routing == "CFO_ESCALATION")
         blocking_count = sum(1 for d in decisions if d.is_blocking)
 
-        # Generate evidence packs for top blocking or escalated exceptions
+        # Generate evidence packs and execute autonomous investigations for sample exceptions
+        from app.investigation.service import InvestigationService
+
+        investigation_service = InvestigationService(context.session, context.company_id)
         packs_generated = 0
-        for exc in exceptions[:10]:  # generate packs for evaluation sample
+        investigations_completed = 0
+        for exc in exceptions[:10]:  # generate packs and investigate evaluation sample
             await pack_router.generate_evidence_pack(
                 context.session, context.company_id, exc, ev_graph
             )
             packs_generated += 1
+            try:
+                await investigation_service.investigate_exception(
+                    exception_id=exc.id,
+                    policy=context.policy,
+                    graph=ev_graph,
+                )
+                investigations_completed += 1
+            except Exception:
+                pass
 
         metrics = {
             "total_exceptions": len(exceptions),
@@ -371,11 +384,13 @@ class ExceptionReviewExecutor(CloseTaskExecutor):
             "cfo_escalation": cfo_escalation_count,
             "blocking_exceptions": blocking_count,
             "evidence_packs_generated": packs_generated,
+            "investigations_completed": investigations_completed,
         }
         summary_text = (
-            f"Reviewed {len(exceptions)} exceptions: {auto_resolve_count} auto-resolvable, "
-            f"{human_review_count} require human review, {cfo_escalation_count} CFO escalations, "
-            f"{blocking_count} blocking close completion."
+            f"Reviewed {len(exceptions)} exceptions "
+            f"({investigations_completed} investigated by CFO Agent): "
+            f"{auto_resolve_count} auto-resolvable, {human_review_count} require human review, "
+            f"{cfo_escalation_count} CFO escalations, {blocking_count} blocking close completion."
         )
 
         return TaskExecutionResult(

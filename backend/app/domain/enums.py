@@ -85,6 +85,16 @@ class ExceptionStatus(StrEnum):
     AUTO_RESOLVED = "AUTO_RESOLVED"
 
 
+class AgentRunStatus(StrEnum):
+    """Execution status for an autonomous agent run (spec section 5.3)."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    TIMED_OUT = "TIMED_OUT"
+
+
 class AutonomyLevel(StrEnum):
     """Controlled autonomy levels (spec section 11)."""
 

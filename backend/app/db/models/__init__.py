@@ -5,6 +5,7 @@ so ``Base.metadata`` is complete for ``create_all`` and Alembic autogenerate.
 """
 
 from app.db.base import Base
+from app.db.models.agent import AgentRun, AgentStep
 from app.db.models.audit import (
     AgentPromptVersion,
     AuditEvent,
@@ -37,6 +38,8 @@ from app.db.models.tenancy import Company, RoleAssignment, User
 
 __all__ = [
     "AgentPromptVersion",
+    "AgentRun",
+    "AgentStep",
     "AuditEvent",
     "BankAccount",
     "BankTransaction",
