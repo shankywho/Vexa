@@ -39,6 +39,16 @@ class FinancialEvidenceGraph:
         """The tenant ID bounding this graph."""
         return self._company_id
 
+    @property
+    def nodes(self) -> dict[str, EvidenceNode]:
+        """Dictionary of all nodes in graph indexed by ID."""
+        return self._nodes
+
+    @property
+    def edges(self) -> dict[str, EvidenceEdge]:
+        """Dictionary of all edges in graph indexed by ID."""
+        return self._edges
+
     # -------------------------------------------------------------------------
     # Mutation & Ingestion
     # -------------------------------------------------------------------------

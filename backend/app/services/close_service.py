@@ -10,65 +10,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.close_workflow.state_machine import (
+    ALLOWED_CLOSE_RUN_TRANSITIONS as ALLOWED_TRANSITIONS,
+)
 from app.db.models.close_run import CloseRun, CloseTask
 from app.db.models.tenancy import Company
 from app.domain.enums import CloseRunStatus, CloseTaskStatus, CloseTaskType
-
-# Allowed state transitions (spec section 14).
-ALLOWED_TRANSITIONS: dict[CloseRunStatus, set[CloseRunStatus]] = {
-    CloseRunStatus.CREATED: {
-        CloseRunStatus.INGESTING,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.INGESTING: {
-        CloseRunStatus.RECONCILING,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.RECONCILING: {
-        CloseRunStatus.INVESTIGATING,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.INVESTIGATING: {
-        CloseRunStatus.VERIFYING,
-        CloseRunStatus.WAITING_FOR_HUMAN,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.VERIFYING: {
-        CloseRunStatus.INVESTIGATING,
-        CloseRunStatus.FINAL_VERIFICATION,
-        CloseRunStatus.WAITING_FOR_HUMAN,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.WAITING_FOR_HUMAN: {
-        CloseRunStatus.VERIFYING,
-        CloseRunStatus.RESOLVING,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.RESOLVING: {
-        CloseRunStatus.FINAL_VERIFICATION,
-        CloseRunStatus.FAILED,
-        CloseRunStatus.BLOCKED,
-    },
-    CloseRunStatus.FINAL_VERIFICATION: {
-        CloseRunStatus.READY_TO_CLOSE,
-        CloseRunStatus.BLOCKED,
-        CloseRunStatus.FAILED,
-    },
-    CloseRunStatus.READY_TO_CLOSE: {CloseRunStatus.CLOSED, CloseRunStatus.BLOCKED},
-    CloseRunStatus.CLOSED: set(),
-    CloseRunStatus.FAILED: {CloseRunStatus.CREATED},
-    CloseRunStatus.BLOCKED: set(),
-}
 
 # Default close-task catalogue created with every close run (spec section 15).
 DEFAULT_CLOSE_TASKS: list[CloseTaskType] = [
@@ -176,3 +128,9 @@ class CloseRunService:
         )
         result = await self.session.scalars(stmt)
         return list(result.all())
+
+    def get_controller(self, policy: Any | None = None) -> Any:
+        """Instantiate a CloseWorkflowController for this tenant."""
+        from app.close_workflow.controller import CloseWorkflowController
+
+        return CloseWorkflowController(self.session, self.company_id, policy=policy)

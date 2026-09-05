@@ -628,6 +628,22 @@ class ExceptionRepository(TenantRepository):
         result = await self.session.scalars(stmt)
         return result.all()
 
+    async def list_by_close_run(
+        self, close_run_id: uuid.UUID, limit: int = 1000, offset: int = 0
+    ) -> Sequence[ExceptionRecord]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ExceptionRecord)
+            .options(selectinload(ExceptionRecord.evidence))
+            .where(*self._tenant_filter(ExceptionRecord.close_run_id == close_run_id))
+            .order_by(ExceptionRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
     async def clear_exceptions(self, close_run_id: uuid.UUID | None = None) -> int:
         """Clear previous exceptions for tenant, optionally by close run."""
         from sqlalchemy import delete
