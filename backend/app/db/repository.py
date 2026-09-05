@@ -21,6 +21,7 @@ from sqlalchemy.orm import InstrumentedAttribute
 from app.db.base import Base
 from app.db.models.banking import BankAccount, BankTransaction, Payment
 from app.db.models.counterparty import Customer, Vendor
+from app.db.models.exception import ReconciliationResult
 from app.db.models.fx import FxRate
 from app.db.models.ledger import JournalEntry, JournalEntryLine, LedgerAccount
 from app.db.models.procurement import (
@@ -31,6 +32,7 @@ from app.db.models.procurement import (
     PurchaseOrder,
 )
 from app.db.models.tenancy import Company
+from app.domain.enums import ReconciliationStatus
 
 
 class TenantBoundaryError(ValueError):
@@ -466,3 +468,79 @@ class FxRateRepository:
         self.session.add(rate)
         await self.session.flush()
         return rate
+
+
+class ReconciliationRepository(TenantRepository):
+    """Repository for structured reconciliation results and matches."""
+
+    model = ReconciliationResult
+
+    async def get_with_matches(self, result_id: uuid.UUID) -> ReconciliationResult | None:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ReconciliationResult)
+            .options(selectinload(ReconciliationResult.matches))
+            .where(*self._tenant_filter(ReconciliationResult.id == result_id))
+        )
+        return await self.session.scalar(stmt)
+
+    async def list_by_type(
+        self, reconciliation_type: str, limit: int = 100, offset: int = 0
+    ) -> Sequence[ReconciliationResult]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ReconciliationResult)
+            .options(selectinload(ReconciliationResult.matches))
+            .where(
+                *self._tenant_filter(
+                    ReconciliationResult.reconciliation_type == reconciliation_type
+                )
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def list_by_status(
+        self, status: ReconciliationStatus, limit: int = 100, offset: int = 0
+    ) -> Sequence[ReconciliationResult]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ReconciliationResult)
+            .options(selectinload(ReconciliationResult.matches))
+            .where(*self._tenant_filter(ReconciliationResult.status == status))
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def list_by_close_run(
+        self, close_run_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> Sequence[ReconciliationResult]:
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(ReconciliationResult)
+            .options(selectinload(ReconciliationResult.matches))
+            .where(*self._tenant_filter(ReconciliationResult.close_run_id == close_run_id))
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
+    async def clear_results(self, close_run_id: uuid.UUID | None = None) -> int:
+        """Clear previous reconciliation results for tenant, optionally by close run."""
+        from sqlalchemy import delete
+
+        criteria = [ReconciliationResult.company_id == self.company_id]
+        if close_run_id is not None:
+            criteria.append(ReconciliationResult.close_run_id == close_run_id)
+        stmt = delete(ReconciliationResult).where(*criteria)
+        res = await self.session.execute(stmt)
+        return int(res.rowcount or 0)

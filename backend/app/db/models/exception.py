@@ -35,8 +35,8 @@ class ExceptionRecord(UUIDPkMixin, TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    close_run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("close_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    close_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("close_runs.id", ondelete="CASCADE"), nullable=True, index=True
     )
     type: Mapped[ExceptionType] = mapped_column(
         Enum(ExceptionType, name="exception_type"), nullable=False, index=True
@@ -145,8 +145,8 @@ class ReconciliationResult(UUIDPkMixin, TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    close_run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("close_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    close_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("close_runs.id", ondelete="CASCADE"), nullable=True, index=True
     )
     reconciliation_type: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[ReconciliationStatus] = mapped_column(
@@ -157,7 +157,29 @@ class ReconciliationResult(UUIDPkMixin, TimestampMixin, Base):
         Numeric(20, 2), default=Decimal("0"), nullable=False
     )
     fx_conversion_applied: Mapped[bool] = mapped_column(default=False, nullable=False)
-    details: Mapped[dict | None] = mapped_column("details_json", Text)
+    details_json: Mapped[str | None] = mapped_column("details_json", Text)
+
+    @property
+    def details(self) -> dict | None:
+        if not self.details_json:
+            return None
+        import json
+
+        try:
+            return json.loads(self.details_json)
+        except Exception:
+            return None
+
+    @details.setter
+    def details(self, value: dict | str | None) -> None:
+        if value is None:
+            self.details_json = None
+        elif isinstance(value, str):
+            self.details_json = value
+        else:
+            import json
+
+            self.details_json = json.dumps(value, default=str)
 
     matches: Mapped[list[ReconciliationMatch]] = relationship(
         back_populates="result", cascade="all, delete-orphan"

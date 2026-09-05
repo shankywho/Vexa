@@ -8,23 +8,23 @@
     "financial_impact": "1450000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "dc23a0eb-6091-49fe-aff0-fa97537a097c",
+    "primary_record_id": "d731056c-0023-4e0f-8c78-ae6a04f1586d",
     "primary_record_number": "INV-DEMO-001",
     "related_record_ids": [
-      "8eafbd72-2b77-471d-ba31-e21f22bf8000",
-      "0496dca7-cc47-474b-8f52-e5502e0d9987",
-      "8ccdc19c-c8d5-4908-b5a4-1ad07d9c5ba5",
-      "c95c2ef6-01b0-4143-bfb2-c7563debf8ba",
-      "86eea9d6-1f51-4b51-a7a0-71e4fde317d1",
-      "89501ad8-c072-4024-89d4-d26a2130d74b",
-      "a3ee10c7-d4ac-4ecd-b1ae-208847788f6e",
-      "afc7ea27-21ec-4ac0-9908-474d2294d229",
-      "2699f10d-5674-419a-b0e1-0355b57d4a8c",
-      "74959d41-e369-4416-95dc-5c1436cbda09",
-      "6a1dd67c-1620-4790-b3a1-3501d2b7672e",
-      "190fc6ea-10bc-4042-9aa7-c057eca57536",
-      "bb313122-90d1-4521-93e6-9462ca7c9fd5",
-      "0c1a7721-3dea-4377-af4d-085cd0c67d38"
+      "a21752dc-2506-44f0-bd3f-09bbc68a1710",
+      "3bcd1fa3-9a5b-4dd1-a3f9-5f0a280ae107",
+      "aaa66c3a-3369-4c22-87e8-134808dae70c",
+      "3d1dd3d4-8295-43a9-9f3b-11e907ce255d",
+      "5f1961ee-0cdd-473f-b5e9-4be09c97e214",
+      "7ea98da0-6680-4ba3-81f9-0fd2e98df6fc",
+      "77c2a391-058c-4f0a-a6d3-ee4816b61f61",
+      "bd209b62-6eb1-499c-bb6b-deeceba893dd",
+      "dd881d06-3e54-4876-a3f5-cfd67ca95afa",
+      "e3c2a5c3-f367-4eb2-b9ad-b227eb7e4af3",
+      "a2d2b9d8-4ec6-4a9f-8e6c-573e09ad192a",
+      "17631195-296c-487d-9a2e-ac57c8f7a10c",
+      "b96a647e-804f-4fbc-94c4-d5d1740f70ca",
+      "1cd9a8b8-637d-486d-9061-f8155de8d6cc"
     ],
     "expected_root_cause": "payment fragmentation anomaly"
   },
@@ -37,11 +37,11 @@
     "financial_impact": "384000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "8f8cf29d-3be8-4a4b-8b06-51d026cbc3a2",
+    "primary_record_id": "987b7c58-5d83-4462-b80f-a728d422f3b7",
     "primary_record_number": "INV-DEMO-002",
     "related_record_ids": [
-      "b0fa4aaa-a4db-447b-9ab2-2259a487e2a5",
-      "b7aabdd8-da0c-48ef-be4c-aa0b85912e22"
+      "28f3eada-17ea-41c5-b221-a702c479d11f",
+      "eaa1a5d4-8c79-4917-9d6a-4f84bc7b541d"
     ],
     "expected_root_cause": "Invoice quantity exceeds received quantity"
   },
@@ -54,14 +54,14 @@
     "financial_impact": "0.00",
     "human_review_required": false,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "88f3c9ef-377e-453e-bfa0-2e6ad7fee612",
+    "primary_record_id": "d6acecc9-ae99-4946-984d-ea1fdc8aee02",
     "primary_record_number": "INV-CLEAN-001",
     "related_record_ids": [
-      "768473f8-aaef-4139-9645-189e2cbb99e8",
-      "23f9203c-caf0-4b41-b1f7-e077841f1ebd",
-      "31c19a3c-a749-4f42-868d-96456999666c",
-      "322769a4-1560-4304-b94b-a1caece59105",
-      "2a3b5cb5-4546-40b1-beec-b9e47b79e3af"
+      "fe1a8037-26ae-429d-bfb6-70bda1d2b3f1",
+      "9f83d997-ed59-4c05-b97e-9786a7dc98e7",
+      "685d4b97-6404-44da-adbd-93b78b3100af",
+      "449f1a76-8e0e-4bb4-a06c-5b88cf1df045",
+      "05f19373-c264-4c56-8ce6-5ea0b9b33add"
     ],
     "expected_root_cause": "None (clean transaction)"
   },
@@ -74,10 +74,10 @@
     "financial_impact": "85000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "5bd7cd43-e31e-4161-a70a-02a29421104e",
+    "primary_record_id": "4ee4dbdd-4636-4195-a07a-23ab7fc816f6",
     "primary_record_number": "INV-DUP-REF-001",
     "related_record_ids": [
-      "1ecb1876-86fd-48ca-bbbc-8a4d0dfe0981"
+      "ce58a09f-5af4-4f3f-b48e-d39f3d408471"
     ],
     "expected_root_cause": "Vendor re-submitted identical invoice"
   },
@@ -90,10 +90,10 @@
     "financial_impact": "85000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "7c91ca83-cc6d-4295-b244-6e92efeff37d",
+    "primary_record_id": "03b01670-7f9c-4dfd-a72d-60a11d22ab44",
     "primary_record_number": "INV-DUP-REF-002",
     "related_record_ids": [
-      "49883beb-6655-4a36-b1cf-89e15a7797b1"
+      "84cf9995-b439-4625-bafb-2d1a4351900a"
     ],
     "expected_root_cause": "Vendor re-submitted identical invoice"
   },
@@ -106,10 +106,10 @@
     "financial_impact": "85000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "763bfd9f-e58c-4a8f-a2ae-8b4b2c4c7507",
+    "primary_record_id": "cfef217c-d8cf-45bb-abde-d2a2742c2324",
     "primary_record_number": "INV-DUP-REF-003",
     "related_record_ids": [
-      "19fce3e6-b3b4-4741-a980-c29ea522f360"
+      "fcbcf2bb-db24-4cf7-9bb1-0661b4b9e5a2"
     ],
     "expected_root_cause": "Vendor re-submitted identical invoice"
   },
@@ -122,10 +122,10 @@
     "financial_impact": "85000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "157241d8-4090-42d9-a81e-ace9f4adda4f",
+    "primary_record_id": "d7974858-1c9b-46c6-95a3-0a5c3a3566ea",
     "primary_record_number": "INV-DUP-REF-004",
     "related_record_ids": [
-      "ac06ec13-2e10-4b69-9b09-b17717b6558d"
+      "c2c294bc-6f6e-4b0c-be7d-4e6371172894"
     ],
     "expected_root_cause": "Vendor re-submitted identical invoice"
   },
@@ -138,10 +138,10 @@
     "financial_impact": "85000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "6d54a428-2b49-4c27-b70e-bd0f7af2e63e",
+    "primary_record_id": "e66f2dc4-5cf4-493c-9eb2-634ba219a7aa",
     "primary_record_number": "INV-DUP-REF-005",
     "related_record_ids": [
-      "928d00bf-b081-404c-82c2-02faf71834e1"
+      "b65184d0-b2fb-4886-848e-18ff1bababd2"
     ],
     "expected_root_cause": "Vendor re-submitted identical invoice"
   },
@@ -154,10 +154,10 @@
     "financial_impact": "15000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "7988bccd-fafd-437e-b156-45091b62837f",
+    "primary_record_id": "5d48192a-01b7-4e3c-845a-58c3a7856239",
     "primary_record_number": "INV-POMIS-001",
     "related_record_ids": [
-      "a30f928a-39df-4350-b879-ca048d1c15e4"
+      "fc87b38d-7be8-45e3-a8b4-077425ab706a"
     ],
     "expected_root_cause": "Unit price mismatch against approved PO"
   },
@@ -170,10 +170,10 @@
     "financial_impact": "15000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "95463f54-a6f8-43da-8b4f-ee207afb2db2",
+    "primary_record_id": "70735f73-d516-4c08-a479-979c29d78b38",
     "primary_record_number": "INV-POMIS-002",
     "related_record_ids": [
-      "226660a5-f52f-4ad3-a447-0157c593a803"
+      "a19afb90-5bf4-4603-85c5-f74fbfbe6ecc"
     ],
     "expected_root_cause": "Unit price mismatch against approved PO"
   },
@@ -186,10 +186,10 @@
     "financial_impact": "15000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "c7dadc4a-fd98-433f-b561-4d459bc67911",
+    "primary_record_id": "228ec9eb-8713-4b9a-832f-5aa1604c0ade",
     "primary_record_number": "INV-POMIS-003",
     "related_record_ids": [
-      "e7fa24e1-6515-442f-bfe9-e3ac76f69bcd"
+      "314429d4-dd8c-4cd0-8836-58224fffbc95"
     ],
     "expected_root_cause": "Unit price mismatch against approved PO"
   },
@@ -202,10 +202,10 @@
     "financial_impact": "15000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "87f4d484-1be5-415a-8067-1a7abe351bcb",
+    "primary_record_id": "bafa8f97-69d7-4223-87db-7b6444101e62",
     "primary_record_number": "INV-POMIS-004",
     "related_record_ids": [
-      "cb332085-765f-4f85-802f-4af3949c2ff1"
+      "e7468ac5-0d7d-4d47-aac2-61ff561b315e"
     ],
     "expected_root_cause": "Unit price mismatch against approved PO"
   },
@@ -218,11 +218,11 @@
     "financial_impact": "50000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "617ad038-a5e3-4657-9db6-53f38c437c2b",
+    "primary_record_id": "7952b3e7-3198-4d3d-bd8f-f73404a3e938",
     "primary_record_number": "INV-RCMIS-001",
     "related_record_ids": [
-      "d0d63a5f-024d-47a5-9177-586554065d68",
-      "a6dc636a-96dd-467f-a2e1-1d6a699272a7"
+      "b4490271-6b0f-4749-8759-3500da9e244b",
+      "352f0be4-181a-45e9-a405-7ead50775251"
     ],
     "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
   },
@@ -235,11 +235,11 @@
     "financial_impact": "50000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "a5ef7ded-cf9a-40c7-9201-c9c562b4b261",
+    "primary_record_id": "1ef384f3-e29e-4c85-8271-ba0b4147116b",
     "primary_record_number": "INV-RCMIS-002",
     "related_record_ids": [
-      "f5a6a146-496b-4fe2-a4b3-3bb0540f4e44",
-      "70e83310-4699-4b1e-8cbe-51642be32bae"
+      "3ac4e5f0-efb9-4821-a34f-8dc7e5c49aa0",
+      "fd4bcc1b-b894-4314-8e64-8110a5267c4a"
     ],
     "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
   },
@@ -252,11 +252,11 @@
     "financial_impact": "50000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "454863b9-f24f-42d2-a680-d1cd71ca0de8",
+    "primary_record_id": "2edae74f-59c5-48fd-89a1-fd21fa82fbc7",
     "primary_record_number": "INV-RCMIS-003",
     "related_record_ids": [
-      "41749231-c15c-49b2-ba10-78e4040f312c",
-      "6e779547-6d88-4846-bcd9-9723d93a83a6"
+      "59b6f99c-8dc7-40b3-8038-006ca6ca8d0e",
+      "738691fa-ed1b-4c85-afb5-2b1a893d8627"
     ],
     "expected_root_cause": "Invoiced quantity exceeds goods receipt quantity"
   },
@@ -269,11 +269,11 @@
     "financial_impact": "120000.00",
     "human_review_required": true,
     "primary_record_type": "PAYMENT",
-    "primary_record_id": "ce7a85ad-7087-4337-94ad-d49263206080",
+    "primary_record_id": "d7ea7774-ba20-4bf1-b909-2184214d0229",
     "primary_record_number": "REF-DUPP-1-2",
     "related_record_ids": [
-      "e0ce44e1-83c1-436a-89c0-146f77d47326",
-      "8374717a-fa6a-4fa4-99b3-cc438b195c68"
+      "cd4b2398-188b-4978-9178-92d77282d5ef",
+      "e11ddcf2-b3f3-4e05-97b7-d5c5a7d4f03f"
     ],
     "expected_root_cause": "Double payment executed against same invoice"
   },
@@ -286,11 +286,11 @@
     "financial_impact": "120000.00",
     "human_review_required": true,
     "primary_record_type": "PAYMENT",
-    "primary_record_id": "2b11f62a-9158-4198-b4f3-eac77d96f27e",
+    "primary_record_id": "a9dec3e5-5f76-41b6-8978-75905a04f245",
     "primary_record_number": "REF-DUPP-2-2",
     "related_record_ids": [
-      "9724751e-2dcf-439e-8e57-f3b661d7c7c5",
-      "aebb6d71-e929-4bce-a663-671f11f29d08"
+      "dcdb7893-b0eb-4109-a816-42490642c24b",
+      "173d9e74-e192-460f-bde3-bd1df6b5b549"
     ],
     "expected_root_cause": "Double payment executed against same invoice"
   },
@@ -303,11 +303,11 @@
     "financial_impact": "120000.00",
     "human_review_required": true,
     "primary_record_type": "PAYMENT",
-    "primary_record_id": "1e2b0a14-86bb-4996-9963-9fc982aecb07",
+    "primary_record_id": "47f81f29-a014-4d8b-8b63-e5c98d163828",
     "primary_record_number": "REF-DUPP-3-2",
     "related_record_ids": [
-      "53fcda69-a0d9-405c-9d33-8783fd892b1c",
-      "994d5b07-86b2-4d77-8a72-b25960d77115"
+      "db12edb2-2b46-454a-b096-cc2d7981e33a",
+      "f431793d-4096-4051-9d7e-50a74c32e30b"
     ],
     "expected_root_cause": "Double payment executed against same invoice"
   },
@@ -320,11 +320,11 @@
     "financial_impact": "120000.00",
     "human_review_required": true,
     "primary_record_type": "PAYMENT",
-    "primary_record_id": "5e75636e-4d10-4869-8af2-8831932cda39",
+    "primary_record_id": "8a462aba-67ea-4d88-bb16-bc519d090a7c",
     "primary_record_number": "REF-DUPP-4-2",
     "related_record_ids": [
-      "875f3ac0-c9a0-4e92-8220-98e3c2665970",
-      "a7baed96-3464-453b-b8a8-8f8bda592670"
+      "8e932964-1c94-4d42-a914-a8672c28c387",
+      "24fa3573-2d4a-407f-b1a4-219d13f33ac8"
     ],
     "expected_root_cause": "Double payment executed against same invoice"
   },
@@ -337,10 +337,10 @@
     "financial_impact": "950000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "5702d451-be24-40a8-a133-e8761013dcd1",
+    "primary_record_id": "f4152244-f091-48d8-860a-730188a68f4b",
     "primary_record_number": "INV-UVA-001",
     "related_record_ids": [
-      "8f21f299-677a-42d2-a3ae-56e902b9991e"
+      "f18812a7-04d9-4f96-aad3-9f772226b08f"
     ],
     "expected_root_cause": "Material volume surge beyond historical vendor profile"
   },
@@ -353,10 +353,10 @@
     "financial_impact": "950000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "c3c6569a-20c7-4fd8-a758-e29a6181054a",
+    "primary_record_id": "4be99e2e-08b1-4837-962a-812fef27ffaa",
     "primary_record_number": "INV-UVA-002",
     "related_record_ids": [
-      "c958715a-31b9-41fd-8a04-559aeb461472"
+      "84626704-898f-4bf4-be40-8c96b82a7a14"
     ],
     "expected_root_cause": "Material volume surge beyond historical vendor profile"
   },
@@ -369,10 +369,10 @@
     "financial_impact": "950000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "f4586700-1e1f-4af2-adac-14ad465fd37b",
+    "primary_record_id": "bacec35f-dc35-4f37-9981-e64fc98db4a8",
     "primary_record_number": "INV-UVA-003",
     "related_record_ids": [
-      "5a65c3d2-f2a3-42a7-90a7-e270e2a80fda"
+      "b029c769-75ca-4c6c-b875-99d0a2b2d3f8"
     ],
     "expected_root_cause": "Material volume surge beyond historical vendor profile"
   },
@@ -385,19 +385,19 @@
     "financial_impact": "500000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "f9c79914-e522-4f7e-91fe-5ca1e2d1a95b",
+    "primary_record_id": "d18da425-9c6a-449f-9895-72d132798739",
     "primary_record_number": "INV-FRAG2-001",
     "related_record_ids": [
-      "effec845-c80d-46bd-8591-2e5079c0d260",
-      "f62c7dfd-7320-4f66-bca8-16bd4437cf61",
-      "e662261b-573c-49a1-b68c-6cfabce066e0",
-      "69a87a37-eefb-4d9a-982d-0e924bb4dafd",
-      "473bc8b7-b6a3-41f7-9ca1-1f2df293dbab",
-      "1870f2f0-22e8-45da-aada-b6077711fbaf",
-      "d29d6e1f-92a1-492c-add6-54256d2afb39",
-      "951a127a-d2b2-4d8c-aac1-8394757a0f37",
-      "c661b402-ad5a-4020-84fa-36f96982091f",
-      "44d03c74-04ab-4e09-a318-38b9b1dfa700"
+      "903942b7-60db-4d48-89b1-ecbe2f674974",
+      "6e18bd59-4243-423f-ab74-0bd9add45d49",
+      "9f304b66-a7a4-4151-9e42-567ece353883",
+      "e20fd253-f435-4d90-b1db-82e341d08466",
+      "4a52fa40-6868-47aa-80a7-4d80caee97e0",
+      "186d0bee-57d3-4666-b19a-e167869764ad",
+      "abdb14a0-8d2f-4537-9e01-c1728a4f70bd",
+      "9e143ecf-0b1d-4866-85fa-8ecae41a365d",
+      "b2ad4638-05f5-409f-9fd2-e8bb7b9c04a0",
+      "55074d45-8160-49b7-bbd0-f0bac6b96078"
     ],
     "expected_root_cause": "Fragmented settlement pattern"
   },
@@ -410,7 +410,7 @@
     "financial_impact": "175000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "55c6446b-71fb-4e53-8d7c-1fba86d0ca9d",
+    "primary_record_id": "e3178c32-a01c-427a-9929-9fd3af851377",
     "primary_record_number": "INV-NO-PO-001",
     "related_record_ids": [],
     "expected_root_cause": "Missing purchase order authorization"
@@ -424,10 +424,10 @@
     "financial_impact": "210000.00",
     "human_review_required": true,
     "primary_record_type": "INVOICE",
-    "primary_record_id": "faa5c88e-8031-4f2f-995a-a4f3669309b4",
+    "primary_record_id": "f3338bd7-56ec-410c-9e9c-e46fc6275270",
     "primary_record_number": "INV-NO-GR-001",
     "related_record_ids": [
-      "5cad69eb-0ed1-41f1-86fd-1796882e156b"
+      "1ba8a88b-8b46-421f-ad82-d5491960fd22"
     ],
     "expected_root_cause": "Missing goods receipt delivery confirmation"
   },
@@ -440,10 +440,10 @@
     "financial_impact": "320000.00",
     "human_review_required": true,
     "primary_record_type": "GOODS_RECEIPT",
-    "primary_record_id": "737b6d32-855e-4519-8f49-96244dfefa42",
+    "primary_record_id": "1a7f63bc-971f-4083-8937-7135a2c11b83",
     "primary_record_number": "GR-NO-INV-001",
     "related_record_ids": [
-      "13b4b21c-2dc3-4407-87c3-a2a8171110ee"
+      "c29c4ede-3a07-4bcd-81a4-416411848ecf"
     ],
     "expected_root_cause": "Unbilled receipt requires GRNI accrual"
   },
@@ -456,7 +456,7 @@
     "financial_impact": "185000.00",
     "human_review_required": true,
     "primary_record_type": "JOURNAL_ENTRY",
-    "primary_record_id": "c4b45f93-2f73-4c0e-a9e3-e10caf91330a",
+    "primary_record_id": "c436c32c-c65f-44ff-b68f-b88875a4034f",
     "primary_record_number": "JE-ERR-GL-001",
     "related_record_ids": [],
     "expected_root_cause": "Incorrect account classification in posting rule"
@@ -470,7 +470,7 @@
     "financial_impact": "45000.00",
     "human_review_required": true,
     "primary_record_type": "JOURNAL_ENTRY",
-    "primary_record_id": "5e3a3f7c-57a9-4667-aa59-eaf8b8a343ad",
+    "primary_record_id": "e0369cc3-c131-4e6a-9084-3fe9c17e86cd",
     "primary_record_number": "JE-ERR-GL-002",
     "related_record_ids": [],
     "expected_root_cause": "Capitalization policy violation"
@@ -484,7 +484,7 @@
     "financial_impact": "65000.00",
     "human_review_required": true,
     "primary_record_type": "JOURNAL_ENTRY",
-    "primary_record_id": "e02506bb-8492-4c50-97c8-1947ae353cd7",
+    "primary_record_id": "c8b1000e-abec-432c-8d7f-b23a03e6b0be",
     "primary_record_number": "JE-ERR-GL-003",
     "related_record_ids": [],
     "expected_root_cause": "Revenue account used for vendor transaction"
@@ -498,7 +498,7 @@
     "financial_impact": "190000.00",
     "human_review_required": true,
     "primary_record_type": "JOURNAL_ENTRY",
-    "primary_record_id": "a71679b5-7d59-4ddf-be40-263769fb1e01",
+    "primary_record_id": "5a1c41a6-6560-46a4-a566-d8c6a5fbb9e4",
     "primary_record_number": "JE-ACCR-001",
     "related_record_ids": [],
     "expected_root_cause": "Accrual estimate variance > 300%"
@@ -512,7 +512,7 @@
     "financial_impact": "250000.00",
     "human_review_required": true,
     "primary_record_type": "JOURNAL_ENTRY",
-    "primary_record_id": "3db83fbf-fd81-4afe-8c50-09a2cdbb92f0",
+    "primary_record_id": "193cee90-7f3f-4ab6-98ed-75b98cffa763",
     "primary_record_number": "JE-ACCR-002",
     "related_record_ids": [],
     "expected_root_cause": "Under-accrual due to uncommunicated litigation scope"
@@ -526,7 +526,7 @@
     "financial_impact": "70000.00",
     "human_review_required": true,
     "primary_record_type": "BANK_TRANSACTION",
-    "primary_record_id": "8d23dbba-9eba-4acf-bb92-717c90a22a2a",
+    "primary_record_id": "86214158-9787-4c01-aa69-393ebbf9f73c",
     "primary_record_number": "CUST-REM-SHORT-01",
     "related_record_ids": [],
     "expected_root_cause": "Unexplained customer deduction / withholding"
@@ -540,7 +540,7 @@
     "financial_impact": "70000.00",
     "human_review_required": true,
     "primary_record_type": "BANK_TRANSACTION",
-    "primary_record_id": "dc9eaddc-64ff-4c2f-b862-eb4afbd618af",
+    "primary_record_id": "7a1c194f-6b06-43eb-aea2-c2084336d54e",
     "primary_record_number": "CUST-REM-SHORT-02",
     "related_record_ids": [],
     "expected_root_cause": "Unexplained customer deduction / withholding"
