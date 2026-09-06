@@ -1,0 +1,621 @@
+:root {
+  /* Primary brand colors (Warm Crimson / Orange-Red) */
+  --color-primary-50: #fef3f1;
+  --color-primary-100: #fde7e2;
+  --color-primary-200: #fbc7bb;
+  --color-primary-300: #fe9b85;
+  --color-primary-400: #fe4a22;
+  --color-primary-500: #fe2f01;
+  --color-primary-600: #d52801;
+  --color-primary-700: #ad2001;
+  --color-primary-800: #841901;
+  --color-primary-900: #5e1808;
+  --color-primary-950: #3d0f05;
+
+  /* Secondary brand colors (Amber / Gold) */
+  --color-secondary-50: #fefbf0;
+  --color-secondary-100: #fdf8e2;
+  --color-secondary-200: #fbeebb;
+  --color-secondary-300: #ffe485;
+  --color-secondary-400: #ffd026;
+  --color-secondary-500: #ffc800;
+  --color-secondary-600: #d6a800;
+  --color-secondary-700: #ad8800;
+  --color-secondary-800: #856800;
+  --color-secondary-900: #5e4c08;
+  --color-secondary-950: #3d3105;
+
+  /* Accent colors (Mint / Emerald Green) */
+  --color-accent-50: #f4fbf7;
+  --color-accent-100: #e8f7ef;
+  --color-accent-200: #caedda;
+  --color-accent-300: #a1e3c0;
+  --color-accent-400: #67d59a;
+  --color-accent-500: #48c884;
+  --color-accent-600: #32a567;
+  --color-accent-700: #288554;
+  --color-accent-800: #1f6640;
+  --color-accent-900: #1c4a31;
+  --color-accent-950: #123020;
+
+  /* Neutrals & Dark Surface */
+  --color-neutral-50: #f7f7f7;
+  --color-neutral-100: #f0f0f0;
+  --color-neutral-200: #dbdbdb;
+  --color-neutral-300: #c2c2c2;
+  --color-neutral-400: #9e9e9e;
+  --color-neutral-500: #808080;
+  --color-neutral-600: #6b6b6b;
+  --color-neutral-700: #575757;
+  --color-neutral-800: #424242;
+  --color-neutral-900: #333333;
+  --color-neutral-950: #1a1a1a;
+  --color-neutral-1000: #121212;
+
+  /* Functional alert colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Typography (Design System Specification) */
+  --font-family-headings: 'Urbanist', sans-serif;
+  --font-family-body: sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  --font-family-sans: var(--font-family-body);
+  --font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.84rem;
+  --font-size-base: 0.95rem;
+  --font-size-md: 1.15rem;
+  --font-size-lg: 1.5rem;
+  --font-size-xl: 2.2rem;
+  --font-size-2xl: 3.0rem;
+  --font-size-3xl: 4.0rem;
+  --font-size-4xl: 5.2rem;
+
+  /* Spacings */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.625rem;
+  --spacing-4: 0.875rem;
+  --spacing-5: 1.125rem;
+  --spacing-6: 1.375rem;
+  --spacing-7: 1.625rem;
+  --spacing-8: 1.875rem;
+  --spacing-9: 2.25rem;
+  --spacing-10: 2.75rem;
+  --spacing-12: 3.5rem;
+
+  /* Apple Design System Foundations (WWDC Fluid Interfaces & Human Needs) */
+  --material-chrome: rgba(18, 18, 20, 0.86);
+  --material-chrome-highlight: rgba(255, 255, 255, 0.2);
+  --material-sidebar: rgba(255, 255, 255, 0.82);
+  --material-surface: #ffffff;
+  --material-scrim: rgba(0, 0, 0, 0.4);
+
+  /* Apple Squircle Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* Apple Diffuse Multi-Layer Elevation Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 14px rgba(0, 0, 0, 0.04), 0 16px 36px -4px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 6px 20px rgba(0, 0, 0, 0.05), 0 28px 56px -8px rgba(0, 0, 0, 0.14);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.03), 0 10px 24px -2px rgba(0, 0, 0, 0.04);
+  --shadow-capsule: 0 16px 40px -8px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  /* Easing Curves & Springs (Apple Critically Damped Defaults) */
+  --ease-spring-ui: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --transition-instant: 120ms var(--ease-spring-ui);
+  --transition-fast: 160ms var(--ease-spring-ui);
+  --transition-normal: 240ms var(--ease-spring-ui);
+  --transition-slow: 360ms var(--ease-spring-ui);
+}
+
+/* Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Body: sans-serif (weight 400) per typography specification */
+body {
+  font-family: var(--font-family-body);
+  font-weight: 400;
+  background-color: var(--color-neutral-100);
+  color: var(--color-neutral-900);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Headings: Urbanist (weights 300, 400, 500) per typography specification */
+h1, h2, h3, h4, h5, h6, .heading-urbanist, .font-heading {
+  font-family: var(--font-family-headings);
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-weight: 500;
+  font-size: var(--font-size-2xl);
+  line-height: 1.15;
+}
+
+h2 {
+  font-weight: 500;
+  font-size: var(--font-size-xl);
+  line-height: 1.2;
+}
+
+h3 {
+  font-weight: 500;
+  font-size: var(--font-size-lg);
+  line-height: 1.25;
+}
+
+h4 {
+  font-weight: 500;
+  font-size: var(--font-size-md);
+  line-height: 1.3;
+}
+
+.heading-300, .font-light {
+  font-family: var(--font-family-headings);
+  font-weight: 300;
+}
+
+.heading-400, .font-regular {
+  font-family: var(--font-family-headings);
+  font-weight: 400;
+}
+
+.heading-500, .font-medium {
+  font-family: var(--font-family-headings);
+  font-weight: 500;
+}
+
+/* Tabular Numerals for Financial Data */
+.tabular-nums, .font-mono, td, .financial-amount {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Global Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}
+
+/* Apple Surface & Depth Utilities */
+.surface-card {
+  background: var(--material-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.surface-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Apple Design Metric Grid - Guaranteed uniform sizing, squircle radius, and flex stretching */
+.metrics-strip-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+  align-items: stretch;
+}
+
+.metrics-strip-5 > * {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+}
+
+@media (max-width: 1200px) {
+  .metrics-strip-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-strip-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .metrics-strip-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metrics-strip-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+  align-items: stretch;
+}
+
+.metrics-strip-4 > * {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .metrics-strip-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .metrics-strip-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Apple Hero Split Section Grid */
+.hero-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 2.5rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .hero-split-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+/* Apple Executive Split Cards Grid */
+.executive-split-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .executive-split-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+.surface-frosted {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-lg);
+}
+
+.surface-dark {
+  background: var(--color-neutral-950);
+  color: #ffffff;
+  border-radius: var(--radius-lg);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Interactive Buttons: Emil Kowalski Design Engineering Rules */
+button {
+  font-family: var(--font-family-sans);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: transform 160ms var(--ease-out),
+              background-color 160ms var(--ease-out),
+              color 160ms var(--ease-out),
+              border-color 160ms var(--ease-out),
+              box-shadow 160ms var(--ease-out),
+              opacity 160ms var(--ease-out);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-primary {
+  background: var(--color-primary-500);
+  color: #ffffff;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(254, 47, 1, 0.3);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  box-shadow: 0 6px 20px rgba(254, 47, 1, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--color-neutral-800);
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-neutral-200);
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-neutral-50);
+  border-color: var(--color-neutral-300);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-dark {
+  background: var(--color-neutral-900);
+  color: #ffffff;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.btn-dark:hover:not(:disabled) {
+  background: var(--color-neutral-950);
+}
+
+.btn-dark:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Animations: Never scale from 0; start from scale(0.96) with opacity 0 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 200ms var(--ease-out) forwards;
+}
+
+.popover-dropdown {
+  transform-origin: top right;
+  animation: popoverIn 160ms var(--ease-out) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+/* Stagger animations for cards and lists (30-80ms intervals) */
+.stagger-1 { animation-delay: 40ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 160ms; }
+.stagger-5 { animation-delay: 200ms; }
+
+/* Common UI Utilities */
+.card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-neutral-200);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.text-title {
+  font-family: var(--font-family-headings);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  color: var(--color-neutral-950);
+}
+
+.text-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-neutral-500);
+  margin-top: 0.2rem;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.65rem 0.95rem;
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-neutral-900);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-field:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(254, 47, 1, 0.12);
+  background: #ffffff;
+}
+
+.badge-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.badge-yellow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.badge-red {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.badge-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.badge-neutral {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+  border: 1px solid var(--color-neutral-200);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Apple Design Section 14: Accessibility Foundations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .surface-frosted, aside, header div {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #ffffff !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .surface-card, aside, header div {
+    border: 1px solid var(--color-neutral-900) !important;
+  }
+}
+

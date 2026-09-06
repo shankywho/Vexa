@@ -29,15 +29,29 @@ class TenantContext:
 def _extract_company_id_from_request(request: Request) -> uuid.UUID | None:
     """Extract tenant identity from the (Phase 2) auth context.
 
-    Phase 1 foundation: reads a dev header ``X-Company-Id`` when auth is
-    disabled; this is replaced by real auth in a later phase. When no header
-    is present, falls back to the configured default tenant.
+    Phase 1 foundation: reads a dev header ``X-Company-Id`` or query param
+    ``company_id`` (for EventSource/SSE where headers cannot be set).
+    When neither is present, falls back to the configured default tenant.
     """
     header = request.headers.get("X-Company-Id")
     if header:
-        return uuid.UUID(header)
+        try:
+            return uuid.UUID(header)
+        except (ValueError, TypeError):
+            pass
+    param = request.query_params.get("company_id")
+    if param:
+        try:
+            return uuid.UUID(param)
+        except (ValueError, TypeError):
+            pass
     default = get_settings().default_tenant_company_id
-    return uuid.UUID(str(default)) if default else None
+    if default:
+        try:
+            return uuid.UUID(str(default))
+        except (ValueError, TypeError):
+            pass
+    return None
 
 
 async def get_tenant_context(
