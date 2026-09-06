@@ -19,7 +19,8 @@ import {
   MOCK_DEMO_TRACES
 } from './mockData';
 
-const BASE_URL = '/api';
+const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const BASE_URL = `${API_ORIGIN}/api`;
 
 function getActiveTenantId(): string {
   return (

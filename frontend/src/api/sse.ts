@@ -1,5 +1,7 @@
 export type SSECallback = (event: string, data: any) => void;
 
+const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 export class CloseRunEventStream {
   private eventSource: EventSource | null = null;
   private listeners: Set<SSECallback> = new Set();
@@ -18,7 +20,7 @@ export class CloseRunEventStream {
 
     try {
       const companyId = localStorage.getItem('vexa_active_tenant_id') || 'abf0fca7-983d-5216-bbde-71a6678ca5e8';
-      this.eventSource = new EventSource(`/api/close-runs/${this.closeRunId}/stream?company_id=${companyId}`);
+      this.eventSource = new EventSource(`${API_ORIGIN}/api/close-runs/${this.closeRunId}/stream?company_id=${companyId}`);
 
       this.eventSource.onopen = () => {
         this.isConnected = true;
@@ -166,7 +168,7 @@ export class DemoTraceEventStream {
 
     try {
       const companyId = localStorage.getItem('vexa_active_tenant_id') || 'abf0fca7-983d-5216-bbde-71a6678ca5e8';
-      this.eventSource = new EventSource(`/api/demo/traces/${this.traceId}/stream?playback_speed=${this.speed}&company_id=${companyId}`);
+      this.eventSource = new EventSource(`${API_ORIGIN}/api/demo/traces/${this.traceId}/stream?playback_speed=${this.speed}&company_id=${companyId}`);
 
       this.eventSource.onopen = () => {
         this.isConnected = true;
