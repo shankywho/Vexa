@@ -27,13 +27,31 @@ async def lifespan(app: FastAPI):
     await dispose_engine()
 
 
+TAGS_METADATA = [
+    {"name": "health", "description": "Service health checks and readiness probes."},
+    {"name": "companies", "description": "Company tenant management and financial entity configuration."},
+    {"name": "close-runs", "description": "Month-end close workflow orchestration, DAG task execution, and sign-offs."},
+    {"name": "exceptions", "description": "Reconciliation exception registry, bounded forensic evidence dossiers, and human approvals."},
+    {"name": "agent-runs", "description": "Autonomous financial agent execution runs and step-level telemetry."},
+    {"name": "audit", "description": "Immutable SOX 404 audit ledger, control mappings, and tamper-evident event trails."},
+    {"name": "benchmarks", "description": "CFO-Bench 35-scenario ground truth benchmark evaluation and confidence calibration reports."},
+    {"name": "demo", "description": "Demonstration safety net controls, LIVE vs. REPLAY execution mode, and trace recording."},
+]
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
 
     app = FastAPI(
         title=settings.app_name,
-        version="0.1.0",
+        description=(
+            "Autonomous Office of the CFO — Month-End Close Operating System.\n\n"
+            "Features mathematical determinism, graph-based forensic investigation, "
+            "cross-model verification independence, and immutable SOX 404 audit logging."
+        ),
+        version="2.0.0",
+        openapi_tags=TAGS_METADATA,
         debug=settings.debug,
         lifespan=lifespan,
     )

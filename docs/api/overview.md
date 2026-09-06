@@ -9,7 +9,10 @@ The Vexa backend exposes a REST and Server-Sent Events (SSE) surface built with 
 * **Base Path:** `/api`
 * **Interactive Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 * **ReDoc Specification:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-* **OpenAPI JSON:** [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
+* **Dynamic OpenAPI JSON:** [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
+* **Static Swagger Specification:** [`docs/api/swagger.json`](./swagger.json) and [`swagger.json`](../../swagger.json)
+* **Static OpenAPI Specification:** [`docs/api/openapi.json`](./openapi.json) and [`openapi.json`](../../openapi.json)
+* **Export Script:** `python backend/scripts/export_openapi.py` (regenerates static Swagger schemas)
 
 ---
 
