@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: vexa-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vexa-postgres
+          property: connectionString
+      - key: VEXA_ENVIRONMENT
+        value: production
+      - key: VEXA_LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+
+databases:
+  - name: vexa-postgres
+    plan: starter
+    databaseName: vexa
+    user: vexa

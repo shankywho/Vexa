@@ -19,6 +19,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import httpx
+import neatlogs
 from pydantic import BaseModel
 
 from app.domain.enums import ExceptionType, Role
@@ -1853,6 +1854,7 @@ class BaseStructuredLLMProvider(LLMProvider):
         """Execute HTTP request to LLM and return parsed raw JSON dictionary and call metadata."""
         ...
 
+    @neatlogs.span(kind="CHAIN", name="generate_structured")
     async def generate_structured(
         self,
         prompt: str,
@@ -1873,6 +1875,7 @@ class BaseStructuredLLMProvider(LLMProvider):
         self.last_call_metadata = metadata
         return response_schema.model_validate(data)
 
+    @neatlogs.span(kind="CHAIN", name="generate_finding")
     async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
         from app.investigation.citation_validator import CitationValidator
         from app.investigation.prompt import (
@@ -1955,26 +1958,32 @@ class GroqProvider(BaseStructuredLLMProvider):
             "temperature": 0.0,
         }
 
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            resp = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        with neatlogs.trace("groq_llm_call", kind="LLM") as span:
+            span.set_attribute("neatlogs.llm.input_value", prompt)
+            span.set_attribute("neatlogs.llm.model_name", self.model)
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-        latency_ms = int((time.monotonic() - start_time) * 1000)
-        content = data["choices"][0]["message"]["content"]
-        cleaned_json = clean_json_payload(content)
-        parsed_data = json.loads(cleaned_json)
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            content = data["choices"][0]["message"]["content"]
+            cleaned_json = clean_json_payload(content)
+            parsed_data = json.loads(cleaned_json)
 
-        usage = data.get("usage", {})
-        in_tok = usage.get("prompt_tokens", 0)
-        out_tok = usage.get("completion_tokens", 0)
-        tot_tok = usage.get("total_tokens", in_tok + out_tok)
-        cost = Decimal(str(in_tok)) * Decimal("0.00000059") + Decimal(str(out_tok)) * Decimal("0.00000079")
-        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            usage = data.get("usage", {})
+            in_tok = usage.get("prompt_tokens", 0)
+            out_tok = usage.get("completion_tokens", 0)
+            tot_tok = usage.get("total_tokens", in_tok + out_tok)
+            cost = Decimal(str(in_tok)) * Decimal("0.00000059") + Decimal(str(out_tok)) * Decimal("0.00000079")
+            cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            span.set_attribute("neatlogs.llm.output_value", content)
+            span.set_attribute("neatlogs.llm.token_count.prompt", in_tok)
+            span.set_attribute("neatlogs.llm.token_count.completion", out_tok)
 
         meta = LLMCallMetadata(
             provider="groq",
@@ -2027,26 +2036,32 @@ class MistralProvider(BaseStructuredLLMProvider):
             "temperature": 0.0,
         }
 
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            resp = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        with neatlogs.trace("mistral_llm_call", kind="LLM") as span:
+            span.set_attribute("neatlogs.llm.input_value", prompt)
+            span.set_attribute("neatlogs.llm.model_name", self.model)
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-        latency_ms = int((time.monotonic() - start_time) * 1000)
-        content = data["choices"][0]["message"]["content"]
-        cleaned_json = clean_json_payload(content)
-        parsed_data = json.loads(cleaned_json)
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            content = data["choices"][0]["message"]["content"]
+            cleaned_json = clean_json_payload(content)
+            parsed_data = json.loads(cleaned_json)
 
-        usage = data.get("usage", {})
-        in_tok = usage.get("prompt_tokens", 0)
-        out_tok = usage.get("completion_tokens", 0)
-        tot_tok = usage.get("total_tokens", in_tok + out_tok)
-        cost = Decimal(str(in_tok)) * Decimal("0.00000030") + Decimal(str(out_tok)) * Decimal("0.00000090")
-        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            usage = data.get("usage", {})
+            in_tok = usage.get("prompt_tokens", 0)
+            out_tok = usage.get("completion_tokens", 0)
+            tot_tok = usage.get("total_tokens", in_tok + out_tok)
+            cost = Decimal(str(in_tok)) * Decimal("0.00000030") + Decimal(str(out_tok)) * Decimal("0.00000090")
+            cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            span.set_attribute("neatlogs.llm.output_value", content)
+            span.set_attribute("neatlogs.llm.token_count.prompt", in_tok)
+            span.set_attribute("neatlogs.llm.token_count.completion", out_tok)
 
         meta = LLMCallMetadata(
             provider="mistral",
@@ -2106,41 +2121,47 @@ class GeminiProvider(BaseStructuredLLMProvider):
         }
 
         endpoint = f"{self.base_url}/{self.model}:generateContent"
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            resp = await client.post(
-                endpoint,
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        with neatlogs.trace("gemini_llm_call", kind="LLM") as span:
+            span.set_attribute("neatlogs.llm.input_value", prompt)
+            span.set_attribute("neatlogs.llm.model_name", self.model)
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(
+                    endpoint,
+                    headers=headers,
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-        latency_ms = int((time.monotonic() - start_time) * 1000)
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise ValueError(f"Gemini returned empty candidates: {data}")
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            raise ValueError(f"Gemini candidate has no text parts: {candidates[0]}")
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            candidates = data.get("candidates", [])
+            if not candidates:
+                raise ValueError(f"Gemini returned empty candidates: {data}")
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if not parts:
+                raise ValueError(f"Gemini candidate has no text parts: {candidates[0]}")
 
-        content = ""
-        for p in parts:
-            if "text" in p and p["text"]:
-                content = p["text"]
-                if "{" in content:
-                    break
-        if not content and "text" in parts[0]:
-            content = parts[0]["text"]
+            content = ""
+            for p in parts:
+                if "text" in p and p["text"]:
+                    content = p["text"]
+                    if "{" in content:
+                        break
+            if not content and "text" in parts[0]:
+                content = parts[0]["text"]
 
-        cleaned_json = clean_json_payload(content)
-        parsed_data = json.loads(cleaned_json)
+            cleaned_json = clean_json_payload(content)
+            parsed_data = json.loads(cleaned_json)
 
-        usage = data.get("usageMetadata", {})
-        in_tok = usage.get("promptTokenCount", 0)
-        out_tok = usage.get("candidatesTokenCount", 0)
-        tot_tok = usage.get("totalTokenCount", in_tok + out_tok)
-        cost = Decimal(str(in_tok)) * Decimal("0.00000010") + Decimal(str(out_tok)) * Decimal("0.00000040")
-        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            usage = data.get("usageMetadata", {})
+            in_tok = usage.get("promptTokenCount", 0)
+            out_tok = usage.get("candidatesTokenCount", 0)
+            tot_tok = usage.get("totalTokenCount", in_tok + out_tok)
+            cost = Decimal(str(in_tok)) * Decimal("0.00000010") + Decimal(str(out_tok)) * Decimal("0.00000040")
+            cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            span.set_attribute("neatlogs.llm.output_value", content)
+            span.set_attribute("neatlogs.llm.token_count.prompt", in_tok)
+            span.set_attribute("neatlogs.llm.token_count.completion", out_tok)
 
         meta = LLMCallMetadata(
             provider="gemini",
@@ -2205,26 +2226,32 @@ class RealLLMInvestigationProvider(BaseStructuredLLMProvider):
             "temperature": 0.0,
         }
 
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            resp = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        with neatlogs.trace("openai_llm_call", kind="LLM") as span:
+            span.set_attribute("neatlogs.llm.input_value", prompt)
+            span.set_attribute("neatlogs.llm.model_name", self.model)
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-        latency_ms = int((time.monotonic() - start_time) * 1000)
-        content = data["choices"][0]["message"]["content"]
-        cleaned_json = clean_json_payload(content)
-        parsed_data = json.loads(cleaned_json)
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            content = data["choices"][0]["message"]["content"]
+            cleaned_json = clean_json_payload(content)
+            parsed_data = json.loads(cleaned_json)
 
-        usage = data.get("usage", {})
-        in_tok = usage.get("prompt_tokens", 0)
-        out_tok = usage.get("completion_tokens", 0)
-        tot_tok = usage.get("total_tokens", in_tok + out_tok)
-        cost = Decimal(str(in_tok)) * Decimal("0.00000250") + Decimal(str(out_tok)) * Decimal("0.00001000")
-        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            usage = data.get("usage", {})
+            in_tok = usage.get("prompt_tokens", 0)
+            out_tok = usage.get("completion_tokens", 0)
+            tot_tok = usage.get("total_tokens", in_tok + out_tok)
+            cost = Decimal(str(in_tok)) * Decimal("0.00000250") + Decimal(str(out_tok)) * Decimal("0.00001000")
+            cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            span.set_attribute("neatlogs.llm.output_value", content)
+            span.set_attribute("neatlogs.llm.token_count.prompt", in_tok)
+            span.set_attribute("neatlogs.llm.token_count.completion", out_tok)
 
         meta = LLMCallMetadata(
             provider="openai",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 
+import neatlogs
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.benchmarks.runner import CFOBenchRunner, benchmark_repository
@@ -33,6 +34,7 @@ async def list_benchmarks(
 
 
 @router.post("/run", response_model=BenchmarkRunSummary, status_code=status.HTTP_201_CREATED)
+@neatlogs.span(kind="WORKFLOW", name="run_benchmark")
 async def run_benchmark() -> BenchmarkRunSummary:
     """Execute the full CFO-Bench suite across all 35 injected ground-truth scenarios."""
     runner = CFOBenchRunner()

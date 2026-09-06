@@ -9,6 +9,16 @@ rolled back at teardown (fast, deterministic isolation).
 from __future__ import annotations
 
 import os
+
+os.environ["VEXA_ENVIRONMENT"] = "development"
+os.environ["VEXA_MISTRAL_API_KEY"] = ""
+os.environ["VEXA_GROQ_API_KEY"] = ""
+os.environ["VEXA_GEMINI_API_KEY"] = ""
+os.environ["MISTRAL_API_KEY"] = ""
+os.environ["GROQ_API_KEY"] = ""
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["VEXA_LLM_PROVIDER"] = "deterministic"
+
 import uuid
 from collections.abc import AsyncIterator
 
@@ -21,6 +31,9 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+from app.config import get_settings
+get_settings.cache_clear()
 
 from app.db.models import Base
 from app.db.session import get_session
@@ -93,3 +106,14 @@ def client_session(client: AsyncClient) -> AsyncSession:
 def company_id() -> uuid.UUID:
     """A stable UUID for tests that do not need a real company row."""
     return uuid.uuid4()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_neatlogs():
+    """Ensure Neatlogs shuts down cleanly before pytest closes streams."""
+    yield
+    try:
+        import neatlogs
+        neatlogs.shutdown()
+    except Exception:
+        pass

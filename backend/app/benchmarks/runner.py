@@ -19,6 +19,7 @@ from app.domain.enums import ExceptionSeverity, ExceptionType
 from app.investigation.calibration import ConfidenceCalibrator
 from app.investigation.citation_validator import CitationValidator
 from app.investigation.llm_provider import (
+    DeterministicInvestigationProvider,
     LLMProvider,
     get_provider_for_agent,
 )
@@ -97,7 +98,15 @@ class CFOBenchRunner:
         self.repo = repo or benchmark_repository
         self.session = session
         self.company_id = company_id
-        self.provider = provider or get_provider_for_agent("investigation_agent")
+        from app.config import get_settings
+
+        cfg = get_settings()
+        if provider is not None:
+            self.provider = provider
+        elif cfg.environment == "test" or cfg.llm_provider == "deterministic":
+            self.provider = DeterministicInvestigationProvider()
+        else:
+            self.provider = get_provider_for_agent("investigation_agent", cfg)
         self.calibrator = ConfidenceCalibrator()
         self.validator = CitationValidator()
 

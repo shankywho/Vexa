@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Self
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -64,11 +64,42 @@ class Settings(BaseSettings):
     debug: bool = False
     api_prefix: str = "/api"
 
+    # CORS
+    cors_origins: list[str] = Field(
+        default=[
+            "https://vexa-autonomous.vercel.app",
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8000",
+        ],
+        description="Allowed CORS origins",
+    )
+
     # Database
-    db_url: str = "postgresql+asyncpg://localhost:5432/vexa"
+    db_url: str = Field(
+        default="postgresql+asyncpg://localhost:5432/vexa",
+        validation_alias=AliasChoices("VEXA_DB_URL", "DATABASE_URL"),
+        description="PostgreSQL connection string with asyncpg driver",
+    )
     db_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 20
+
+    @field_validator("db_url", mode="before")
+    @classmethod
+    def normalize_db_url(cls, v: str | None) -> str:
+        if not v:
+            return "postgresql+asyncpg://localhost:5432/vexa"
+        url = str(v).strip()
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if "sslmode=require" in url:
+            url = url.replace("sslmode=require", "ssl=require")
+        elif "sslmode=prefer" in url:
+            url = url.replace("sslmode=prefer", "ssl=prefer")
+        return url
 
     # Auth (foundation only - real auth lands in a later phase)
     auth_enabled: bool = False

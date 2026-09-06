@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from contextlib import asynccontextmanager
 
+import neatlogs
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     agent_runs,
@@ -19,12 +24,26 @@ from app.api.routes import (
 from app.config import get_settings
 from app.db.session import dispose_engine
 
+load_dotenv()
+
+_neatlogs_key = os.getenv("NEATLOGS_API_KEY")
+_is_test = os.getenv("VEXA_ENVIRONMENT") == "test" or "pytest" in sys.modules
+
+if _neatlogs_key:
+    neatlogs.init(
+        api_key=_neatlogs_key,
+        workflow_name="closepilot-api",
+        disable_export=_is_test,
+        register_shutdown_handlers=not _is_test,
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — currently only cleanup; engine is lazy."""
     yield
     await dispose_engine()
+    neatlogs.shutdown()
 
 
 TAGS_METADATA = [
@@ -54,6 +73,17 @@ def create_app() -> FastAPI:
         openapi_tags=TAGS_METADATA,
         debug=settings.debug,
         lifespan=lifespan,
+    )
+
+    # CORS Middleware (Supports Vercel frontend, local dev, and custom domains)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_origin_regex=r"https://.*\.vercel\.app",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     # API Routes (Spec Section 17, 37)

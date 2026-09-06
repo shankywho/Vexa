@@ -15,6 +15,7 @@ dependencies = [
     "alembic>=1.13.2",
     "python-dotenv>=1.0.1",
     "greenlet>=3.0.3",
+    "neatlogs>=1.4.21",
 ]
 
 [dependency-groups]
