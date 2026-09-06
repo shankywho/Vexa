@@ -121,6 +121,13 @@ class CloseRunCreate(BaseModel):
     period_end: date
 
 
+class CloseRunCertify(BaseModel):
+    """Request schema for certifying and signing off on a close package."""
+
+    officer_name: str = Field(description="Name and title of the signing financial officer")
+    notes: str | None = Field(default=None, description="Optional sign-off notes or audit comment")
+
+
 class CloseRunRead(BaseModel):
     """Response schema for a close run."""
 
@@ -202,7 +209,29 @@ class ExceptionEvidenceRead(BaseModel):
     evidence_ids: list[str]
     dossier: dict[str, Any]
     nodes: list[dict[str, Any]]
+    edges: list[dict[str, Any]] = Field(default_factory=list)
     citations: list[dict[str, Any]]
+
+
+class ClosePolicyRead(BaseModel):
+    """Response schema for financial close policies."""
+
+    policy_version_id: str = "pol_v2_2026_enterprise"
+    max_auto_resolution_amount: str = "50000.00"
+    materiality_threshold: str = "100000.00"
+    min_confidence: str = "0.9500"
+    approval_timeout_hours: int = 24
+    required_approvers_material: list[str] = Field(default_factory=lambda: ["CFO", "CONTROLLER"])
+
+
+class ClosePolicyUpdate(BaseModel):
+    """Request schema for updating financial close policies."""
+
+    max_auto_resolution_amount: str | None = None
+    materiality_threshold: str | None = None
+    min_confidence: str | None = None
+    approval_timeout_hours: int | None = None
+    required_approvers_material: list[str] | None = None
 
 
 class HumanReviewRequest(BaseModel):

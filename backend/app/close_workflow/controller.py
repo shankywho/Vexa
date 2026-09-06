@@ -480,6 +480,37 @@ class CloseWorkflowController:
             generated_at=datetime.fromisoformat(package_dict["generated_at"]),
         )
 
+    async def certify_close_run(
+        self,
+        close_run_id: uuid.UUID,
+        *,
+        officer_name: str,
+        notes: str | None = None,
+    ) -> CloseRun:
+        """Sign off and certify the close package, transitioning status to CLOSED."""
+        close_run = await self.session.get(CloseRun, close_run_id)
+        if close_run is None:
+            raise CloseRunError(f"Close run {close_run_id} does not exist")
+
+        if close_run.status == CloseRunStatus.CLOSED:
+            return close_run
+
+        if close_run.status != CloseRunStatus.READY_TO_CLOSE:
+            readiness = await self.readiness_service.calculate_readiness(close_run_id)
+            if readiness.blocking_exceptions > 0:
+                raise CloseRunError(
+                    f"Cannot certify close run: {readiness.blocking_exceptions} blocking exceptions remain."
+                )
+
+        updated_run = await self.state_machine.transition_close_run(
+            close_run_id,
+            CloseRunStatus.CLOSED,
+            actor=officer_name,
+            reason=f"Certified and signed off by {officer_name}. {notes or ''}".strip(),
+            metadata_={"officer_name": officer_name, "notes": notes},
+        )
+        return updated_run
+
     async def investigate_exception(
         self,
         exception_id: uuid.UUID,

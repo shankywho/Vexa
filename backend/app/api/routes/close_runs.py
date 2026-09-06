@@ -34,6 +34,7 @@ from app.domain.enums import CloseRunStatus
 from app.domain.schemas import (
     AuditEventRead,
     ClosePackageRead,
+    CloseRunCertify,
     CloseRunCreate,
     CloseRunRead,
     CloseTaskRead,
@@ -164,6 +165,31 @@ async def get_close_package(
         package = await controller.generate_close_package(id)
         return package.to_dict()
     except Exception as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
+
+
+@router.post("/{id}/certify", response_model=CloseRunRead)
+async def certify_close_run(
+    id: uuid.UUID,
+    payload: CloseRunCertify,
+    session: AsyncSession = Depends(get_session),
+    tenant: TenantContext = Depends(get_tenant_context),
+) -> CloseRun:
+    """Sign off and certify the month-end close package with immutable officer signature."""
+    run_repo = CloseRunRepository(session, company_id=tenant.company_id)
+    close_run = await run_repo.get(id)
+    if close_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Close run not found")
+
+    controller = CloseWorkflowController(session, company_id=tenant.company_id)
+    try:
+        updated_run = await controller.certify_close_run(
+            id,
+            officer_name=payload.officer_name,
+            notes=payload.notes,
+        )
+        return updated_run
+    except CloseRunError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
 
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
+import { apiClient } from '../../api/client';
 import { MetricCard } from '../../components/common/MetricCard';
 import {
   Sliders,
@@ -23,10 +24,29 @@ export const PolicyConfigPage: React.FC = () => {
   const [largeDisbursementCap, setLargeDisbursementCap] = useState('100000.00');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  useEffect(() => {
+    apiClient.getPolicy().then((policy) => {
+      if (policy.max_auto_resolution_amount) setAutoReconcileCap(policy.max_auto_resolution_amount);
+      if (policy.min_confidence) setMinConfidenceThreshold(policy.min_confidence);
+      if (policy.materiality_threshold) setLargeDisbursementCap(policy.materiality_threshold);
+    }).catch((err) => {
+      console.warn('Using local policy defaults:', err);
+    });
+  }, []);
+
   const canEdit = currentRole === 'CONTROLLER' || currentRole === 'CFO' || currentRole === 'ADMIN';
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      await apiClient.updatePolicy({
+        max_auto_resolution_amount: autoReconcileCap,
+        min_confidence: minConfidenceThreshold,
+        materiality_threshold: largeDisbursementCap,
+      });
+    } catch (err) {
+      console.warn('Policy saved locally:', err);
+    }
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };

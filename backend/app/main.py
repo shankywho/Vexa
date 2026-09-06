@@ -20,6 +20,7 @@ from app.api.routes import (
     demo,
     exceptions,
     health,
+    policies,
 )
 from app.config import get_settings
 from app.db.session import dispose_engine
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(audit.router, prefix=settings.api_prefix)
     app.include_router(benchmarks.router, prefix=settings.api_prefix)
     app.include_router(demo.router, prefix=settings.api_prefix)
+    app.include_router(policies.router, prefix=settings.api_prefix)
 
     return app
 

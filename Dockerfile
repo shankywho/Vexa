@@ -13,15 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY backend/pyproject.toml backend/uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock backend/requirements.txt ./
 
-RUN uv pip install --system -e .
+RUN uv pip install --system -r requirements.txt
 
-COPY backend/alembic.ini ./
+COPY backend/README.md backend/alembic.ini ./
 COPY backend/alembic/ ./alembic/
 COPY backend/app/ ./app/
 COPY backend/scripts/ ./scripts/
 COPY backend/start.sh ./start.sh
+
+RUN uv pip install --system --no-deps -e .
 
 RUN chmod +x ./start.sh
 

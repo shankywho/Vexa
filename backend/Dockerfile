@@ -17,17 +17,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy dependency files first
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock requirements.txt ./
 
 # Install dependencies into system environment using uv
-RUN uv pip install --system -e .
+RUN uv pip install --system -r requirements.txt
 
 # Copy application code, migrations, and assets
-COPY alembic.ini ./
+COPY README.md alembic.ini ./
 COPY alembic/ ./alembic/
 COPY app/ ./app/
 COPY scripts/ ./scripts/
 COPY start.sh ./start.sh
+
+# Install the local project package without reinstalling dependencies
+RUN uv pip install --system --no-deps -e .
 
 RUN chmod +x ./start.sh
 

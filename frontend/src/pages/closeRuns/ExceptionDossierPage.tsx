@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ExceptionRecord } from '../../types/exception';
+import type { FinancialEvidenceGraph } from '../../types/evidenceGraph';
 import { MOCK_EXCEPTIONS, MOCK_EVIDENCE_GRAPH } from '../../api/mockData';
 import { EvidenceGraph } from '../../components/evidence/EvidenceGraph';
 import { useAuth } from '../../context/AuthContext';
@@ -33,9 +34,25 @@ export const ExceptionDossierPage: React.FC<ExceptionDossierPageProps> = ({ exce
     MOCK_EXCEPTIONS.find(e => e.id === exceptionId) ||
     MOCK_EXCEPTIONS[0];
 
+  const [evidenceGraph, setEvidenceGraph] = useState<FinancialEvidenceGraph>(MOCK_EVIDENCE_GRAPH);
   const [activeTab, setActiveTab] = useState<'dossier' | 'graph' | 'math' | 'citations'>('dossier');
   const [approvalNote, setApprovalNote] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (exception.id) {
+      apiClient
+        .getEvidence(exception.id)
+        .then((graph) => {
+          if (graph && graph.nodes && graph.nodes.length > 0) {
+            setEvidenceGraph(graph);
+          }
+        })
+        .catch((err) => {
+          console.warn('Using local evidence graph fallback:', err);
+        });
+    }
+  }, [exception.id]);
 
   const handleApprove = async () => {
     try {
@@ -241,7 +258,7 @@ export const ExceptionDossierPage: React.FC<ExceptionDossierPageProps> = ({ exce
         {/* Tab 2: Financial Evidence Graph */}
         {activeTab === 'graph' && (
           <div>
-            <EvidenceGraph graph={MOCK_EVIDENCE_GRAPH} />
+            <EvidenceGraph graph={evidenceGraph} />
           </div>
         )}
 

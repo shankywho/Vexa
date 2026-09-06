@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 ALLOWED_CLOSE_RUN_TRANSITIONS: dict[CloseRunStatus, set[CloseRunStatus]] = {
     CloseRunStatus.CREATED: {
         CloseRunStatus.INGESTING,
+        CloseRunStatus.READY_TO_CLOSE,
+        CloseRunStatus.CLOSED,
         CloseRunStatus.FAILED,
         CloseRunStatus.BLOCKED,
     },

@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.correction_service import HumanCorrectionService
@@ -15,6 +15,7 @@ from app.api.dependencies import TenantContext, get_tenant_context
 from app.db.models.exception import ExceptionRecord
 from app.db.repository import ExceptionRepository
 from app.db.session import get_session
+from app.domain.enums import ExceptionSeverity, ExceptionStatus
 from app.domain.schemas import (
     ActionResponse,
     EscalateRequest,
@@ -29,6 +30,26 @@ from app.investigation.dossier_builder import EvidenceDossierBuilder
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/exceptions", tags=["exceptions"])
+
+
+@router.get("", response_model=list[ExceptionRead])
+async def list_all_exceptions(
+    status: ExceptionStatus | None = None,
+    severity: ExceptionSeverity | None = None,
+    limit: int = Query(default=100, le=1000),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+    tenant: TenantContext = Depends(get_tenant_context),
+) -> list[ExceptionRecord]:
+    """List financial exceptions for the current tenant with optional status and severity filtering."""
+    repo = ExceptionRepository(session, company_id=tenant.company_id)
+    if status is not None:
+        records = await repo.list_by_status(status, limit=limit, offset=offset)
+    elif severity is not None:
+        records = await repo.list_by_severity(severity, limit=limit, offset=offset)
+    else:
+        records = await repo.list_all(limit=limit, offset=offset)
+    return list(records)
 
 
 @router.get("/corrections/stats", response_model=HumanCorrectionStatsRead)
@@ -79,6 +100,7 @@ async def get_exception_evidence(
     dossier_dict = dossier.to_dict()
     evidence_ids = list(dossier.valid_evidence_ids)
     nodes = dossier_dict.get("ranked_nodes", [])
+    edges = dossier_dict.get("graph_edges", [])
     citations = [
         {"claim": claim, "sources": sources}
         for claim, sources in dossier_dict.get("citations", {}).items()
@@ -89,6 +111,7 @@ async def get_exception_evidence(
         "evidence_ids": evidence_ids,
         "dossier": dossier_dict,
         "nodes": nodes,
+        "edges": edges,
         "citations": citations,
     }
 
