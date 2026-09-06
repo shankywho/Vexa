@@ -8,6 +8,7 @@ defaults so the backend runs out of the box.
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from typing import Self
 
@@ -90,6 +91,31 @@ class Settings(BaseSettings):
     db_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 20
+
+    @field_validator("app_name", mode="before")
+    @classmethod
+    def clean_app_name(cls, v: Any) -> str:
+        if isinstance(v, str):
+            return v.strip().strip("\"'")
+        return str(v)
+
+    @field_validator("seed_random_seed", "db_pool_size", "db_max_overflow", "investigation_max_steps", mode="before")
+    @classmethod
+    def clean_int_fields(cls, v: Any) -> int:
+        if isinstance(v, str):
+            m = re.search(r"-?\d+", v)
+            if m:
+                return int(m.group(0))
+        return int(v) if v is not None else 42
+
+    @field_validator("investigation_max_seconds", "llm_timeout_seconds", mode="before")
+    @classmethod
+    def clean_float_fields(cls, v: Any) -> float:
+        if isinstance(v, str):
+            m = re.search(r"-?\d+(\.\d+)?", v)
+            if m:
+                return float(m.group(0))
+        return float(v) if v is not None else 30.0
 
     @field_validator("db_url", mode="before")
     @classmethod
