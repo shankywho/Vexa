@@ -192,7 +192,7 @@ export const apiClient = {
     if (closeRunId) {
       return this.getCloseExceptions(closeRunId);
     }
-    return localExceptions;
+    return request<ExceptionRecord[]>('/exceptions', {}, localExceptions);
   },
 
   async getClosePackage(closeRunId: string): Promise<ClosePackage> {
@@ -253,19 +253,35 @@ export const apiClient = {
     human_rejected_count: number;
     human_escalated_count: number;
     reversals_count: number;
+    overall?: {
+      total_decisions: number;
+      overrides: number;
+      override_rate: number;
+      tuning_candidate: boolean;
+    };
   }> {
-    return request(
-      '/exceptions/corrections/stats',
-      {},
-      {
-        total_exceptions: 28,
-        auto_resolved_count: 20,
-        human_approved_count: 5,
+    const fallback = {
+      total_exceptions: 28,
+      auto_resolved_count: 20,
+      human_approved_count: 5,
+      human_rejected_count: 1,
+      human_escalated_count: 2,
+      reversals_count: 0,
+    };
+
+    const res = await request<any>('/exceptions/corrections/stats', {}, fallback);
+    if (res && res.overall) {
+      return {
+        total_exceptions: res.overall.total_decisions || 28,
+        auto_resolved_count: Math.max(0, (res.overall.total_decisions || 28) - (res.overall.overrides || 0)),
+        human_approved_count: res.overall.overrides || 5,
         human_rejected_count: 1,
         human_escalated_count: 2,
         reversals_count: 0,
-      }
-    );
+        overall: res.overall,
+      };
+    }
+    return res || fallback;
   },
 
   async getException(id: string): Promise<ExceptionRecord> {

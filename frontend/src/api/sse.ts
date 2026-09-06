@@ -19,7 +19,10 @@ export class CloseRunEventStream {
     if (this.isConnected) return;
 
     try {
-      const companyId = localStorage.getItem('vexa_active_tenant_id') || 'abf0fca7-983d-5216-bbde-71a6678ca5e8';
+      const companyId =
+        localStorage.getItem('vexa_active_tenant') ||
+        localStorage.getItem('vexa_active_tenant_id') ||
+        'abf0fca7-983d-5216-bbde-71a6678ca5e8';
       this.eventSource = new EventSource(`${API_ORIGIN}/api/close-runs/${this.closeRunId}/stream?company_id=${companyId}`);
 
       this.eventSource.onopen = () => {
@@ -167,7 +170,10 @@ export class DemoTraceEventStream {
     if (this.isConnected) return;
 
     try {
-      const companyId = localStorage.getItem('vexa_active_tenant_id') || 'abf0fca7-983d-5216-bbde-71a6678ca5e8';
+      const companyId =
+        localStorage.getItem('vexa_active_tenant') ||
+        localStorage.getItem('vexa_active_tenant_id') ||
+        'abf0fca7-983d-5216-bbde-71a6678ca5e8';
       this.eventSource = new EventSource(`${API_ORIGIN}/api/demo/traces/${this.traceId}/stream?playback_speed=${this.speed}&company_id=${companyId}`);
 
       this.eventSource.onopen = () => {

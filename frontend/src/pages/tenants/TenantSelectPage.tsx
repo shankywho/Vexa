@@ -15,19 +15,19 @@ interface TenantSelectPageProps {
 }
 
 export const TenantSelectPage: React.FC<TenantSelectPageProps> = ({ onSelectTenant }) => {
-  const { currentTenant, setTenantById } = useTenant();
+  const { currentTenant, setTenantById, companies: contextCompanies } = useTenant();
 
-  const companies = [
+  const baseCompanies = [
     {
       id: 'abf0fca7-983d-5216-bbde-71a6678ca5e8',
-      name: 'NovaScale AI Inc.',
-      currency: 'USD',
-      fiscalYearEnd: 'December 31',
+      name: 'NovaScale AI',
+      currency: 'INR',
+      fiscalYearEnd: 'March 31',
       erp: 'NetSuite OneWorld (Live Sync)',
       activePeriod: '2026-03',
       status: 'READY_TO_CLOSE',
-      reconciledVolume: '$14.8M',
-      entitiesCount: 3,
+      reconciledVolume: '₹14.8M',
+      entitiesCount: 1,
     },
     {
       id: 'apex-fintech-eur',
@@ -52,6 +52,30 @@ export const TenantSelectPage: React.FC<TenantSelectPageProps> = ({ onSelectTena
       entitiesCount: 2,
     },
   ];
+
+  const companies = contextCompanies && contextCompanies.length > 0
+    ? contextCompanies.map((c) => {
+        const found = baseCompanies.find((b) => b.id === c.id);
+        if (found) {
+          return {
+            ...found,
+            name: c.name,
+            currency: c.base_currency || found.currency,
+          };
+        }
+        return {
+          id: c.id,
+          name: c.name,
+          currency: c.base_currency || 'USD',
+          fiscalYearEnd: c.fiscal_year_end || 'December 31',
+          erp: 'ERP Connector (Live Sync)',
+          activePeriod: '2026-03',
+          status: 'READY_TO_CLOSE',
+          reconciledVolume: `${c.base_currency || '$'}10.0M`,
+          entitiesCount: 1,
+        };
+      })
+    : baseCompanies;
 
   const handleSelect = (id: string) => {
     setTenantById(id);

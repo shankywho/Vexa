@@ -37,6 +37,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const matched = list.find(c => c.id === currentActiveId) || list[0];
         setActiveCompany(matched);
         localStorage.setItem('vexa_active_tenant', matched.id);
+        localStorage.setItem('vexa_active_tenant_id', matched.id);
         localStorage.setItem('vexa_active_tenant_data', JSON.stringify(matched));
       }
     } finally {
@@ -53,6 +54,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (matched) {
       setActiveCompany(matched);
       localStorage.setItem('vexa_active_tenant', matched.id);
+      localStorage.setItem('vexa_active_tenant_id', matched.id);
       localStorage.setItem('vexa_active_tenant_data', JSON.stringify(matched));
     }
   };
