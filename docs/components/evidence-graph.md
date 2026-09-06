@@ -6,7 +6,7 @@ The Evidence Graph component builds and traverses an in-memory directed knowledg
 
 ## 1. Package Structure
 
-Located at [`backend/app/evidence_graph/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/):
+Located at [`backend/app/evidence_graph/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/):
 
 ```
 app/evidence_graph/
@@ -22,7 +22,7 @@ app/evidence_graph/
 
 ## 2. In-Memory Graph Implementation
 
-The [`FinancialEvidenceGraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/graph.py) maintains dual adjacency structures in memory:
+The [`FinancialEvidenceGraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/graph.py) maintains dual adjacency structures in memory:
 * **Forward Adjacency:** `_adj: dict[str, dict[str, EvidenceEdge]]` mapping `source_id -> {target_id: edge}`.
 * **Reverse Adjacency:** `_rev_adj: dict[str, dict[str, EvidenceEdge]]` mapping `target_id -> {source_id: edge}`.
 * **Nodes Index:** `_nodes: dict[str, EvidenceNode]` mapping `node_id -> node`.
@@ -36,7 +36,7 @@ The [`FinancialEvidenceGraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vex
 
 ## 3. Personalized PageRank Relevance Algorithm
 
-The [`EvidenceRanker`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/ranker.py) computes relevance scores for every node relative to an exception's root entity:
+The [`EvidenceRanker`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/ranker.py) computes relevance scores for every node relative to an exception's root entity:
 
 ```python
 # app/evidence_graph/ranker.py

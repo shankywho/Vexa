@@ -6,7 +6,7 @@ The Streaming component delivers real-time telemetry from asynchronous agents, c
 
 ## 1. Package Structure
 
-Located at [`backend/app/streaming/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/streaming/):
+Located at [`backend/app/streaming/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/streaming/):
 
 ```
 app/streaming/
@@ -18,7 +18,7 @@ app/streaming/
 
 ## 2. Event Bus Architecture
 
-The [`AgentEventBus`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/streaming/bus.py#L22) is an in-memory asynchronous publish-subscribe engine:
+The [`AgentEventBus`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/streaming/bus.py#L22) is an in-memory asynchronous publish-subscribe engine:
 * **Subscribers:** Clients subscribe per `close_run_id` via `GET /api/close-runs/{id}/stream`. Each connection holds an `asyncio.Queue`.
 * **Publishers:** Any backend service (Close Controller, Investigation Agent, Action Service) publishes events using `await agent_event_bus.publish(close_run_id, payload)`.
 * **Decoupling:** Publishing is non-blocking. If no clients are connected, events are silently dropped without affecting database transactions.
@@ -45,4 +45,4 @@ The [`AgentEventBus`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backe
 
 ## 4. Replay Compatibility
 
-The SSE bus interface is identical in both `LIVE` and `REPLAY` modes. When the system operates in replay mode, [`TracePlayer`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/demo/trace_player.py) emits stored events through the exact same SSE formatting, enabling frontend dashboards to render real-time animations with 100% demo consistency.
+The SSE bus interface is identical in both `LIVE` and `REPLAY` modes. When the system operates in replay mode, [`TracePlayer`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/demo/trace_player.py) emits stored events through the exact same SSE formatting, enabling frontend dashboards to render real-time animations with 100% demo consistency.

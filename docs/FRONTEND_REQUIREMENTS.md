@@ -55,6 +55,9 @@ Financial Records (Invoices, POs, Receipts, Payments, Bank, GL)
 4. **Non-Destructive Financial Governance:** Every mutating action (compensating entry, vendor contact, approval) shows its reversible status. The UI provides a dedicated SOX-compliant rollback/reversal path for every executed decision.
 5. **Real-Time Agent Streaming (SSE):** Streaming telemetry shows the Close Controller and specialized agents executing live tools (`reconcile_bank_to_ledger`, `traverse_financial_graph`, `calculate_variance`) with sub-second progress updates.
 6. **Demo Safety Net Transparency:** A persistent, unobtrusive indicator reveals whether the current workspace is running in `LIVE` execution or `REPLAY` trace playback, allowing presenters to demonstrate golden scenarios with zero stage risk.
+7. **Multi-Provider Verification & Provenance:** Every AI-assisted finding and verification result visibly displays provider provenance badges (e.g. `Investigated by Mistral (codestral-22b)` | `Verified by Groq (qwen-27b)`) and an independent cross-model verification status pill (`PRESERVED` in green, or `COMPROMISED (-0.1000 penalty)` in amber).
+8. **Zero Arithmetic Authority & Immutable Balances:** The frontend explicitly distinguishes between read-only, ledger-derived financial amounts (which LLMs are mathematically forbidden from mutating) and explanatory narratives.
+9. **Month-End Close Cost & Economic ROI:** Close package headers and executive dashboards report aggregate LLM inference expenditure (typically <$0.025 per 35-exception close run) alongside hours of human manual review saved.
 
 ---
 
@@ -586,19 +589,25 @@ A universal slide-over drawer opens from the right edge when any financial entit
 * **Purpose:** The forensic deep-dive screen for an individual exception, presenting the bounded evidence dossier, calculation proofs, citations, interactive relationship graph, and action controls.
 * **Page Sections:**
   1. **Dossier Header & Status Bar:**
-     * Breadcrumbs: `Close Runs > [Period] > Exceptions > [Exception ID]`
-     * Title: Exception Type + Short Description (e.g., `EX-042: Billed Quantity Exceeds Physical Goods Receipt`).
-     * Status Badges: Severity, Current Status, Assigned Reviewer, SOX Control ID.
-     * Top Action Toolbar (Role-Aware):
-       * `[ Approve & Execute Staged Action ]` (Green button, Controller/CFO only).
-       * `[ Reject Staged Action ]` (Red outline button, Controller/CFO only).
-       * `[ Escalate to CFO ]` (Amber button, opens escalation modal).
-       * `[ Manual Resolve ]` (Neutral button, opens override modal).
-       * `[ Reverse / Rollback ]` (Available if status is `RESOLVED` or `AUTO_RESOLVED`).
+      * Breadcrumbs: `Close Runs > [Period] > Exceptions > [Exception ID]`
+      * Title: Exception Type + Short Description (e.g., `EX-042: Billed Quantity Exceeds Physical Goods Receipt`).
+      * Status Badges: Severity, Current Status, Assigned Reviewer, SOX Control ID.
+      * **Multi-Provider Provenance & Verification Independence Strip:**
+        * **Investigator Badge:** `Investigated by: Mistral (codestral-latest · 22B)` (Blue badge).
+        * **Verifier Badge:** `Verified by: Groq (qwen/qwen3.8-27b · LPUs)` (Purple badge).
+        * **Independence Guarantee Pill:** `Cross-Model Independence: PRESERVED` (Green badge). If fallback forced provider collision, renders amber: `INDEPENDENCE COMPROMISED (-0.1000 Penalty Applied)`.
+        * **Inference Telemetry:** `Latency: 1,124ms | In/Out Tokens: 378/106 | Call Cost: $0.000209`.
+        * **Ledger Authority Pill:** `Financial Impact: $384,000.00 (Immutable · Ledger Bound)`.
+      * Top Action Toolbar (Role-Aware):
+        * `[ Approve & Execute Staged Action ]` (Green button, Controller/CFO only).
+        * `[ Reject Staged Action ]` (Red outline button, Controller/CFO only).
+        * `[ Escalate to CFO ]` (Amber button, opens escalation modal).
+        * `[ Manual Resolve ]` (Neutral button, opens override modal).
+        * `[ Reverse / Rollback ]` (Available if status is `RESOLVED` or `AUTO_RESOLVED`).
   2. **Split View: Forensic Investigation Panels:**
-     * **Left Pane (60% width): Forensic Dossier & Proofs:**
-       * **Executive Summary & Root Cause:** Synthesized reasoning explaining the root discrepancy.
-       * **Deterministic Calculation Verification Box:**
+      * **Left Pane (60% width): Forensic Dossier & Proofs:**
+        * **Executive Summary & Root Cause:** Synthesized reasoning explaining the root discrepancy. When source documents lack reference narration (e.g., credit-note gap scenario B-04), explicitly flags the attribution gap for human resolution rather than guessing.
+        * **Deterministic Calculation Verification Box:**
          * Formula display: e.g. `(Billed Qty: 1,000 - Received Qty: 760) × Unit Price: ₹1,600.00 = Variance: ₹3,84,000.00`.
          * Deterministic verification badge: `Verified by Deterministic Math Engine (Diff = 0.00)`.
        * **Evidence Records Breakdown:**
@@ -726,6 +735,10 @@ A universal slide-over drawer opens from the right edge when any financial entit
      * **Resolved Exceptions Register Tab:** Full log of all resolved exceptions, root causes, and actions.
      * **Audit Trail Excerpt Tab:** Key governance events, policy version references, and sign-offs.
      * **Confidence Calibration Appendix Tab:** Summary of calibration accuracy for all decisions made during this close.
+     * **Multi-Provider Cost & Efficiency Appendix Tab:**
+       * Total LLM Inference Expenditure: `$0.0206` - `$0.0228` (approx 2.3¢ per 35-exception close run).
+       * Cross-Model Independence Audit: 35/35 exceptions independently verified across heterogeneous providers (Mistral + Groq) with 0 collusion events.
+       * Human Review Labor Saved: 11.7 hours ($877.50 value at $75/hr fully burdened rate).
   4. **Export & Download Center:**
      * `[ Download Structured JSON Package ]` (Full machine-readable file).
      * `[ Download Certified PDF Close Package ]` (Formatted executive binder with cryptographic SHA-256 integrity hash).
@@ -737,7 +750,7 @@ A universal slide-over drawer opens from the right edge when any financial entit
 ### Page 12: CFO-Bench Evaluation Studio (`/benchmarks` & `/benchmarks/:benchmarkId`)
 * **URL:** `/benchmarks` & `/benchmarks/:benchmarkId`
 * **Target Roles:** CFO, Admin, Machine Learning / Quant Engineers
-* **Purpose:** Rigorous benchmark evaluation suite testing Vexa against all 35 injected ground-truth scenarios (the synthetic NovaScale AI dataset).
+* **Purpose:** Rigorous benchmark evaluation suite testing Vexa against all 35 injected ground-truth scenarios (the synthetic NovaScale AI dataset) and unseen generalization test suites.
 * **Page Sections:**
   1. **Benchmark Suite Header:**
      * Overall Score Pill: `35 / 35 Scenarios Passed (F1 Score: 1.00)`.
@@ -746,7 +759,12 @@ A universal slide-over drawer opens from the right edge when any financial entit
        * **Evidence Retrieval Accuracy:** `100%`.
        * **Financial Calculation Accuracy:** `100% (Zero Arithmetic Error)`.
        * **Action Correctness:** `100%`.
-       * **Expected Calibration Error (ECE):** `0.024`.
+       * **Expected Calibration Error (ECE):** `0.0135`.
+       * **Unseen Generalization Pass Rate:** `100%` (Tested against dynamic unseen batches).
+     * **Inference Latency & Telemetry Strip:**
+       * **Deterministic Rule Engine Baseline:** `2.00ms` (Offline safety-net path).
+       * **Live External Multi-Provider Wire Latency:** Groq `1,137ms` | Mistral `1,124ms` | Gemini `1,495ms`.
+       * **Average Cost per Exception:** `$0.000209` (Mistral) + `$0.000354` (Groq).
      * Action: `[ Run Full CFO-Bench Suite ]` Button (`POST /api/benchmarks/run`).
   2. **Historical Benchmark Runs Table (`/benchmarks`):**
      * Columns: Run ID, Date/Time, Agent Prompt Version, Total Scenarios, Passed Scenarios, Accuracy %, Average Latency, Total Cost ($), Actions.

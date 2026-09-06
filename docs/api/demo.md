@@ -1,6 +1,6 @@
 # Demo API Reference
 
-Endpoints for managing demonstration safety, toggling between LIVE and REPLAY execution, and streaming pre-recorded golden traces. Router: [`backend/app/api/routes/demo.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/api/routes/demo.py).
+Endpoints for managing demonstration safety, toggling between LIVE and REPLAY execution, and streaming pre-recorded golden traces. Router: [`backend/app/api/routes/demo.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/demo.py).
 
 ---
 
@@ -9,7 +9,7 @@ Endpoints for managing demonstration safety, toggling between LIVE and REPLAY ex
 ### 1. Get Current Demo Mode
 `GET /api/demo/mode`
 * **Description:** Retrieves the active global demo execution mode (`LIVE` or `REPLAY`).
-* **Response:** [`DemoModeRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/domain/schemas.py).
+* **Response:** [`DemoModeRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
 
 ### 2. Set Demo Mode
 `POST /api/demo/mode`

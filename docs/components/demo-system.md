@@ -6,7 +6,7 @@ The Demo System provides a first-class safety net to guarantee flawless demonstr
 
 ## 1. Package Structure
 
-Located at [`backend/app/demo/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/demo/):
+Located at [`backend/app/demo/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/demo/):
 
 ```
 app/demo/

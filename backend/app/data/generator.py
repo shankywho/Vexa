@@ -1761,6 +1761,36 @@ async def seed_financial_transactions(
         paid_amt = Decimal("350000.00")
         diff = inv_amt - paid_amt
 
+        # Customer invoice journal entry (Dr AR, Cr Revenue)
+        je_ar = JournalEntry(
+            id=seed_uuid(company.id, "journal_entry", f"JE-AR-INV-{ar_idx + 1:02d}"),
+            company_id=company.id,
+            entry_date=start_date + timedelta(days=25 + ar_idx * 15),
+            description=f"Customer Billing Invoice - {cust.name}",
+            reference=f"INV-CUST-{ar_idx + 1:02d}",
+            status=DocumentStatus.POSTED,
+            source="AR_BILLING",
+        )
+        session.add(je_ar)
+        session.add(
+            JournalEntryLine(
+                journal_entry_id=je_ar.id,
+                ledger_account_id=ar_acc.id,
+                debit=inv_amt,
+                credit=Decimal("0.00"),
+                description=f"Accounts Receivable - {cust.name}",
+            )
+        )
+        session.add(
+            JournalEntryLine(
+                journal_entry_id=je_ar.id,
+                ledger_account_id=rev_acc.id,
+                debit=Decimal("0.00"),
+                credit=inv_amt,
+                description=f"Product / Service Revenue - {cust.name}",
+            )
+        )
+
         # Bank transaction for customer payment
         bt_ar = BankTransaction(
             id=seed_uuid(company.id, "bank_transaction", f"CUST-REM-SHORT-{ar_idx + 1:02d}"),
@@ -1879,12 +1909,13 @@ async def seed_financial_transactions(
 
     # International USD vendors: vendors 35 to 41 (multi-currency)
     usd_vendors = vendors[35:42]
+    regular_inr_vendors = [vend for idx, vend in enumerate(vendors[:35]) if idx not in (19, 20, 21)]
 
     # Generate 385 regular POs, 370 of which get GoodsReceipts, and 370 of which get Invoices.
     # Then generate 50 additional direct service invoices (to reach 420 regular invoices).
     for i in range(385):
         is_usd = i % 8 == 0
-        v = rng.choice(usd_vendors) if is_usd else rng.choice(vendors[:35])
+        v = rng.choice(usd_vendors) if is_usd else rng.choice(regular_inr_vendors)
         cur = "USD" if is_usd else "INR"
         po_date = start_date + timedelta(days=rng.randint(1, 80))
         qty = Decimal(str(rng.randint(5, 100)))
@@ -1963,7 +1994,7 @@ async def seed_financial_transactions(
     # 50 direct service/recurring invoices (no PO required, e.g. SaaS subscriptions)
     for i in range(50):
         is_usd = i % 3 == 0
-        v = rng.choice(usd_vendors) if is_usd else rng.choice(vendors[:35])
+        v = rng.choice(usd_vendors) if is_usd else rng.choice(regular_inr_vendors)
         cur = "USD" if is_usd else "INR"
         inv_d = start_date + timedelta(days=rng.randint(5, 85))
         amt = (
@@ -2114,9 +2145,10 @@ async def seed_financial_transactions(
     # Demo 3: 1
     # GL errors: 3
     # Accruals: 2
-    # Total so far = 6.
-    # Need 594 more balanced journal entries.
-    for je_idx in range(594):
+    # AR Invoices: 2
+    # Total so far = 8.
+    # Need 592 more balanced journal entries.
+    for je_idx in range(592):
         je_date = start_date + timedelta(days=rng.randint(1, 89))
         je_amt = Decimal(str(rng.randint(10000, 350000)))
 

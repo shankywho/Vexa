@@ -55,3 +55,9 @@ class ReconciliationConfig(BaseModel):
 
     # Threshold above which a vendor bank change anomaly is elevated to CRITICAL
     vendor_bank_change_large_threshold: Decimal = Field(default=Decimal("10000.00"))
+
+    # Materiality threshold for policy exception triggers
+    materiality_threshold: Decimal = Field(default=Decimal("50000.00"))
+
+    # Maximum amount for direct service / SaaS invoices without a purchase order
+    non_po_threshold: Decimal = Field(default=Decimal("50000.00"))

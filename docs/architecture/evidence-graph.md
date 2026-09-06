@@ -6,7 +6,7 @@ Vexa models financial relationships as a directed knowledge graph rather than un
 
 ## 1. Graph Ontology: Node Types (20)
 
-Every business entity is represented as an [`EvidenceNode`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/types.py) with unique ID format `{node_type}:{record_id}`:
+Every business entity is represented as an [`EvidenceNode`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/types.py) with unique ID format `{node_type}:{record_id}`:
 
 | Node Type | Domain Object | Typical Attributes |
 | :--- | :--- | :--- |
@@ -35,7 +35,7 @@ Every business entity is represented as an [`EvidenceNode`](file:///Users/shanka
 
 ## 2. Graph Ontology: Edge Types (21)
 
-Relationships are modeled as directed [`EvidenceEdge`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/types.py) instances:
+Relationships are modeled as directed [`EvidenceEdge`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/types.py) instances:
 
 ```
 [Source Node] ──(Edge Type)──> [Target Node]
@@ -120,12 +120,12 @@ graph TD
 
 When an exception is identified, the full company graph (which may contain tens of thousands of nodes) must be distilled into a focused context for investigation.
 
-The [`EvidenceRanker`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/ranker.py) computes a personalized PageRank starting from the exception's focus node:
+The [`EvidenceRanker`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/ranker.py) computes a personalized PageRank starting from the exception's focus node:
 1. **Teleport Vector:** Initial probability mass $1.0$ is placed on the primary entity triggering the exception.
 2. **Directed Power Iteration:** Mass propagates across outgoing and incoming edges over 4 iterations with damping factor $\alpha = 0.85$.
 3. **Distance Decay:** Scores decay exponentially with graph distance:
    $$\text{Score}(u) = \text{PageRank}(u) \times e^{-0.5 \cdot \text{hop\_distance}}$$
-4. **Pruning & Extraction:** Nodes exceeding relevance threshold (default: $0.05$) are extracted into an [`EvidenceSubgraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/evidence_graph/types.py) and packaged into the investigation dossier.
+4. **Pruning & Extraction:** Nodes exceeding relevance threshold (default: $0.05$) are extracted into an [`EvidenceSubgraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/types.py) and packaged into the investigation dossier.
 
 ---
 

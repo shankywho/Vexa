@@ -22,7 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models.banking import BankTransaction, Payment
-from app.db.models.counterparty import Vendor
+from app.db.models.close_run import CloseRun
+from app.db.models.counterparty import Customer, Vendor
 from app.db.models.exception import (
     ExceptionEvidence,
     ExceptionRecord,
@@ -61,6 +62,7 @@ from app.reconciliation.rules import (
     match_bank_tx_to_payments,
     match_payments_to_invoice,
     review_accrual_entry,
+    verify_accrual_reversals,
     verify_gl_mapping,
     verify_journal_entry_balance,
 )
@@ -158,6 +160,10 @@ class DeterministicReconciliationEngine:
         stmt_v = select(Vendor).where(Vendor.company_id == self.company_id)
         vendors = (await self.session.scalars(stmt_v)).all()
 
+        # 8. Customers
+        stmt_c = select(Customer).where(Customer.company_id == self.company_id)
+        customers = (await self.session.scalars(stmt_c)).all()
+
         return {
             "invoices": invoices,
             "purchase_orders": pos,
@@ -166,6 +172,7 @@ class DeterministicReconciliationEngine:
             "bank_transactions": bank_txs,
             "journal_entries": journal_entries,
             "vendors": vendors,
+            "customers": customers,
         }
 
     async def run_full_reconciliation(
@@ -183,7 +190,33 @@ class DeterministicReconciliationEngine:
         payments: Sequence[Payment] = data["payments"]
         bank_txs: Sequence[BankTransaction] = data["bank_transactions"]
         journal_entries: Sequence[JournalEntry] = data["journal_entries"]
-        # vendors loaded in data
+        vendors: Sequence[Vendor] = data["vendors"]
+        customers: Sequence[Customer] = data.get("customers", [])
+
+        # Counterparty indexes
+        customer_by_name = {c.name.strip().lower(): c for c in customers}
+        known_counterparties = {c.name.strip().lower() for c in customers} | {
+            v.name.strip().lower() for v in vendors
+        }
+
+        # Index bank transactions by account for statistical outlier analysis
+        bank_txs_by_account: dict[uuid.UUID | None, list[BankTransaction]] = defaultdict(list)
+        for bt in bank_txs:
+            bank_txs_by_account[bt.bank_account_id].append(bt)
+
+        # Index customer open receivables from general ledger billing entries (Dr AR)
+        customer_ar_balance: dict[str, Decimal] = defaultdict(Decimal)
+        for je in journal_entries:
+            for line in je.lines:
+                if line.ledger_account and (
+                    line.ledger_account.account_code == "1100"
+                    or "receivable" in line.ledger_account.name.lower()
+                ):
+                    line_desc = (line.description or "").strip().lower()
+                    je_desc = (je.description or "").strip().lower()
+                    for c_name_lower in customer_by_name:
+                        if c_name_lower in line_desc or c_name_lower in je_desc:
+                            customer_ar_balance[c_name_lower] += line.debit - line.credit
 
         # Indexing for lookup
         pos_by_id = {po.id: po for po in pos}
@@ -215,8 +248,9 @@ class DeterministicReconciliationEngine:
                 res = await evaluate_three_way_match(inv, po, rcs, self.fx_service, self.config)
                 results.append(res)
             else:
-                # Invoice without PO
-                if inv.invoice_number.startswith("INV-NO-PO"):
+                # Invoice without PO reference
+                non_po_threshold = getattr(self.config, "non_po_threshold", Decimal("50000.00"))
+                if inv.total > non_po_threshold:
                     results.append(
                         ReconciliationItemResult(
                             company_id=self.company_id,
@@ -228,14 +262,15 @@ class DeterministicReconciliationEngine:
                             source_record_id=inv.id,
                             source_record_number=inv.invoice_number,
                             deterministic_reason=(
-                                f"Missing Document: Invoice {inv.invoice_number} "
-                                "was submitted without an approved Purchase Order."
+                                f"Missing Document: Invoice {inv.invoice_number} of {inv.total} "
+                                f"{inv.currency} was submitted without an approved Purchase Order "
+                                f"and exceeds non-PO threshold ({non_po_threshold})."
                             ),
                             exception_type=ExceptionType.MISSING_DOCUMENT,
                         )
                     )
                 else:
-                    # Recurring / Direct SaaS service invoice (legitimately without PO)
+                    # Recurring / Direct SaaS service invoice (legitimately without PO under threshold)
                     results.append(
                         ReconciliationItemResult(
                             company_id=self.company_id,
@@ -250,7 +285,7 @@ class DeterministicReconciliationEngine:
                             currencies={"currency": inv.currency},
                             deterministic_reason=(
                                 f"Direct service / recurring invoice {inv.invoice_number} "
-                                "approved without PO requirement."
+                                f"within non-PO threshold ({inv.total} <= {non_po_threshold})."
                             ),
                         )
                     )
@@ -259,11 +294,30 @@ class DeterministicReconciliationEngine:
         # PASS 2: Unbilled Goods Receipts (GRNI Accrual Candidates)
         # -------------------------------------------------------------
         for gr in receipts:
-            if gr.receipt_number == "GR-NO-INV-001" or (
-                gr.po_id and gr.po_id not in invoiced_po_ids
-            ):
+            if gr.po_id and gr.po_id not in invoiced_po_ids:
                 po = pos_by_id.get(gr.po_id)
-                impact = po.total if po else Decimal("320000.00")
+                po_lines_by_id = {pol.id: pol for pol in getattr(po, "lines", [])} if po else {}
+
+                # Compute unbilled receipt valuation from lines or linked PO
+                receipt_val = Decimal("0.00")
+                has_line_val = False
+                for r_line in getattr(gr, "lines", []):
+                    qty = getattr(r_line, "quantity_received", getattr(r_line, "quantity", Decimal("0.00")))
+                    u_price = getattr(r_line, "unit_price", None)
+                    if u_price is None and getattr(r_line, "po_line_id", None) in po_lines_by_id:
+                        u_price = getattr(po_lines_by_id[r_line.po_line_id], "unit_price", None)
+                    if u_price is None and getattr(r_line, "po_line", None):
+                        u_price = getattr(r_line.po_line, "unit_price", None)
+                    if u_price is not None:
+                        receipt_val += qty * u_price
+                        has_line_val = True
+
+                if has_line_val and receipt_val > Decimal("0.00"):
+                    impact = receipt_val
+                elif po and getattr(po, "total", None) is not None:
+                    impact = po.total
+                else:
+                    impact = Decimal("0.00")
                 results.append(
                     ReconciliationItemResult(
                         company_id=self.company_id,
@@ -350,13 +404,38 @@ class DeterministicReconciliationEngine:
         for inv in invoices:
             invoices_by_vendor[inv.vendor_id].append(inv)
 
+        materiality = getattr(self.config, "materiality_threshold", Decimal("50000.00"))
+
         for v_id, v_invs in invoices_by_vendor.items():
-            for inv in v_invs:
-                if (
-                    inv.invoice_number.startswith("INV-UVA")
-                    or inv.total >= Decimal("900000.00")
-                    and len(v_invs) == 1
-                ):
+            sorted_v_invs = sorted(
+                v_invs, key=lambda x: (x.invoice_date, x.created_at or datetime.min)
+            )
+            for i, inv in enumerate(sorted_v_invs):
+                prior_invoices = sorted_v_invs[:i]
+                is_unusual = False
+                reason_detail = ""
+
+                if len(prior_invoices) >= 3:
+                    trailing_avg = sum(
+                        (p.total for p in prior_invoices), Decimal("0.00")
+                    ) / Decimal(str(len(prior_invoices)))
+                    if trailing_avg > Decimal("0.00"):
+                        multiplier = inv.total / trailing_avg
+                        if multiplier > Decimal("2.00") and inv.total >= materiality:
+                            is_unusual = True
+                            reason_detail = (
+                                f"Invoiced amount of {inv.total} {inv.currency} is {multiplier:.1f}x "
+                                f"higher than trailing historical average of {trailing_avg:.2f} "
+                                f"across {len(prior_invoices)} prior invoices."
+                            )
+                elif len(prior_invoices) == 0 and inv.total >= Decimal("800000.00"):
+                    is_unusual = True
+                    reason_detail = (
+                        f"First-time vendor invoice of {inv.total} {inv.currency} "
+                        f"exceeds policy materiality threshold of 800000.00 without prior baseline."
+                    )
+
+                if is_unusual:
                     results.append(
                         ReconciliationItemResult(
                             company_id=self.company_id,
@@ -369,11 +448,7 @@ class DeterministicReconciliationEngine:
                             source_record_number=inv.invoice_number,
                             amounts={"surge_amount": inv.total},
                             currencies={"currency": inv.currency},
-                            deterministic_reason=(
-                                f"Unusual Vendor Activity: Invoiced amount of "
-                                f"{inv.total} {inv.currency} "
-                                f"represents an abnormal volume surge without historical baseline."
-                            ),
+                            deterministic_reason=f"Unusual Vendor Activity: {reason_detail}",
                             exception_type=ExceptionType.UNUSUAL_VENDOR_ACTIVITY,
                         )
                     )
@@ -382,54 +457,52 @@ class DeterministicReconciliationEngine:
         # PASS 6: Bank Statement Transactions Matching
         # -------------------------------------------------------------
         for bt in bank_txs:
-            ref = bt.reference or ""
-            if ref.startswith("CUST-REM-SHORT"):
-                # Scenario 32, 33: AR Mismatch
-                diff = Decimal("70000.00")
-                results.append(
-                    ReconciliationItemResult(
-                        company_id=self.company_id,
-                        reconciliation_type=ReconciliationType.AR_CUSTOMER,
-                        status=ReconciliationStatus.MISMATCH,
-                        confidence=Decimal("1.0000"),
-                        financial_impact=diff,
-                        source_record_type="BANK_TRANSACTION",
-                        source_record_id=bt.id,
-                        source_record_number=bt.reference,
-                        amounts={"short_payment": diff, "received_amount": bt.amount},
-                        currencies={"currency": bt.currency},
-                        differences={"unexplained_deduction": diff},
-                        deterministic_reason=(
-                            f"AR Mismatch: Customer remittance {bt.reference} of {bt.amount} "
-                            f"is short by {diff} against expected customer invoice."
-                        ),
-                        exception_type=ExceptionType.AR_MISMATCH,
-                    )
-                )
-            elif ref.startswith("TXN-UNIDENT"):
-                # Scenario 34, 35: Cash Anomaly
-                results.append(
-                    ReconciliationItemResult(
-                        company_id=self.company_id,
-                        reconciliation_type=ReconciliationType.CASH_ANOMALY,
-                        status=ReconciliationStatus.MISMATCH,
-                        confidence=Decimal("1.0000"),
-                        financial_impact=bt.amount,
-                        source_record_type="BANK_TRANSACTION",
-                        source_record_id=bt.id,
-                        source_record_number=bt.reference,
-                        amounts={"anomaly_amount": bt.amount},
-                        currencies={"currency": bt.currency},
-                        deterministic_reason=(
-                            f"Cash Anomaly: Unidentified bank {bt.direction.value} of {bt.amount} "
-                            f"{bt.currency} (Ref: {bt.reference}) with no corresponding voucher."
-                        ),
-                        exception_type=ExceptionType.CASH_ANOMALY,
-                    )
-                )
+            # 1. Customer remittance / AR Mismatch check against open receivables in GL
+            c_name = (bt.counterparty or "").strip().lower()
+            if bt.direction.value == "CREDIT" and c_name in customer_by_name:
+                cust = customer_by_name[c_name]
+                expected_amount = customer_ar_balance.get(c_name, Decimal("0.00"))
+                if expected_amount > Decimal("0.00") and expected_amount != bt.amount:
+                    diff = expected_amount - bt.amount
+                    if diff > Decimal("0.00"):
+                        results.append(
+                            ReconciliationItemResult(
+                                company_id=self.company_id,
+                                reconciliation_type=ReconciliationType.AR_CUSTOMER,
+                                status=ReconciliationStatus.MISMATCH,
+                                confidence=Decimal("1.0000"),
+                                financial_impact=diff,
+                                source_record_type="BANK_TRANSACTION",
+                                source_record_id=bt.id,
+                                source_record_number=bt.reference,
+                                amounts={
+                                    "short_payment": diff,
+                                    "received_amount": bt.amount,
+                                    "expected_amount": expected_amount,
+                                },
+                                currencies={"currency": bt.currency},
+                                differences={"unexplained_deduction": diff},
+                                deterministic_reason=(
+                                    f"AR Mismatch: Customer {cust.name} remittance {bt.reference} of {bt.amount} "
+                                    f"is short by {diff} against expected customer invoice/receivable balance of {expected_amount}."
+                                ),
+                                exception_type=ExceptionType.AR_MISMATCH,
+                            )
+                        )
+                        continue
+
+            # 2. Bank-to-Payment matching and Statistical Cash Anomaly detection
+            res = await match_bank_tx_to_payments(
+                bank_tx=bt,
+                payments=payments,
+                fx_service=self.fx_service,
+                config=self.config,
+                account_transactions=bank_txs_by_account.get(bt.bank_account_id) or bank_txs,
+                known_counterparties=known_counterparties,
+            )
+            if isinstance(res, list):
+                results.extend(res)
             else:
-                # Standard Bank-to-Payment matching
-                res = await match_bank_tx_to_payments(bt, payments, self.fx_service, self.config)
                 results.append(res)
 
         # -------------------------------------------------------------
@@ -449,6 +522,20 @@ class DeterministicReconciliationEngine:
             accr_res = review_accrual_entry(je, self.config)
             if accr_res:
                 results.append(accr_res)
+
+        # 4. Prior-period accrual reversal verification (spec section 8 & FIX 3)
+        target_close_run = None
+        if close_run_id:
+            target_close_run = await self.session.get(CloseRun, close_run_id)
+        if target_close_run:
+            prior_jes = [je for je in journal_entries if je.entry_date < target_close_run.period_start]
+            current_jes = [
+                je
+                for je in journal_entries
+                if target_close_run.period_start <= je.entry_date <= target_close_run.period_end
+            ]
+            reversal_results = verify_accrual_reversals(prior_jes, current_jes, self.config)
+            results.extend(reversal_results)
 
         # -------------------------------------------------------------
         # PASS 8: Clean 6-Way Match (Demo 3 validation)

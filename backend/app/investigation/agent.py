@@ -30,7 +30,7 @@ from app.investigation.calibration import ConfidenceCalibrator
 from app.investigation.citation_validator import CitationValidator
 from app.investigation.llm_provider import (
     LLMProvider,
-    get_default_llm_provider,
+    get_provider_for_agent,
 )
 from app.investigation.types import (
     AutonomyAction,
@@ -70,7 +70,7 @@ class CFOInvestigationAgent:
     ) -> None:
         self.session = session
         self.company_id = company_id
-        self.provider = provider or get_default_llm_provider()
+        self.provider = provider or get_provider_for_agent("investigation_agent")
         self.calibrator = calibrator or ConfidenceCalibrator()
         self.validator = validator or CitationValidator()
         self.audit_service = audit_service or AuditService(session, company_id)
@@ -185,6 +185,8 @@ class CFOInvestigationAgent:
                 step_start = time.monotonic()
                 raw_finding = await self.provider.generate_finding(request)
                 raw_finding.agent_run_id = agent_run.id
+                if not getattr(raw_finding, "provider_name", None):
+                    raw_finding.provider_name = getattr(self.provider, "provider_name", "deterministic")
                 step_2 = AgentStep(
                     agent_run_id=agent_run.id,
                     step_number=step_num,

@@ -8,9 +8,44 @@ defaults so the backend runs out of the box.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Self
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ConfigurationError(ValueError):
+    """Raised when configuration violates architectural or governance constraints."""
+
+    pass
+
+
+DEFAULT_AGENT_PROVIDER_ROUTING: dict[str, dict[str, str]] = {
+    "investigation_agent": {"primary": "mistral", "fallback": "groq"},
+    "verification_agent": {"primary": "groq", "fallback": "gemini"},
+    "close_controller": {"primary": "gemini", "fallback": "mistral"},
+    "reconciliation_agent": {"primary": "groq", "fallback": "mistral"},
+    "financial_analyst": {"primary": "groq", "fallback": "mistral"},
+    "action_agent": {"primary": "groq", "fallback": "deterministic"},
+}
+
+AGENT_PROVIDER_ROUTING = DEFAULT_AGENT_PROVIDER_ROUTING
+
+
+def validate_routing_independence(
+    routing: dict[str, dict[str, str]],
+    environment: str = "production",
+    strict: bool = False,
+) -> None:
+    """Ensure investigation_agent and verification_agent never share primary provider."""
+    inv_primary = routing.get("investigation_agent", {}).get("primary")
+    ver_primary = routing.get("verification_agent", {}).get("primary")
+    if inv_primary and ver_primary and inv_primary == ver_primary:
+        if environment == "production" or strict:
+            raise ConfigurationError(
+                f"ConfigurationError: investigation_agent and verification_agent cannot share "
+                f"primary provider '{inv_primary}' (violation of independent verification guarantee)."
+            )
 
 
 class Settings(BaseSettings):
@@ -45,7 +80,62 @@ class Settings(BaseSettings):
     seed_deterministic: bool = True
     seed_random_seed: int = 42
 
-    # LLM Investigation Agent
+    # Multi-Provider LLM Credentials & Endpoints
+    groq_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEXA_GROQ_API_KEY", "GROQ_API_KEY"),
+        description="API key for Groq LLM provider",
+    )
+    groq_model: str = Field(
+        default="qwen/qwen3.8-27b",
+        validation_alias=AliasChoices("VEXA_GROQ_MODEL", "GROQ_MODEL"),
+        description="Model identifier for Groq provider",
+    )
+    groq_base_url: str = Field(
+        default="https://api.groq.com/openai/v1",
+        validation_alias=AliasChoices("VEXA_GROQ_BASE_URL", "GROQ_BASE_URL"),
+        description="Base URL for Groq API",
+    )
+
+    mistral_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEXA_MISTRAL_API_KEY", "MISTRAL_API_KEY"),
+        description="API key for Mistral LLM provider",
+    )
+    mistral_model: str = Field(
+        default="codestral-latest",
+        validation_alias=AliasChoices("VEXA_MISTRAL_MODEL", "MISTRAL_MODEL"),
+        description="Model identifier for Mistral provider",
+    )
+    mistral_base_url: str = Field(
+        default="https://api.mistral.ai/v1",
+        validation_alias=AliasChoices("VEXA_MISTRAL_BASE_URL", "MISTRAL_BASE_URL"),
+        description="Base URL for Mistral API",
+    )
+
+    gemini_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("VEXA_GEMINI_API_KEY", "GEMINI_API_KEY"),
+        description="API key for Gemini LLM provider",
+    )
+    gemini_model: str = Field(
+        default="gemini-3.5-flash-lite",
+        validation_alias=AliasChoices("VEXA_GEMINI_MODEL", "GEMINI_MODEL"),
+        description="Model identifier for Gemini provider",
+    )
+    gemini_base_url: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta/models",
+        validation_alias=AliasChoices("VEXA_GEMINI_BASE_URL", "GEMINI_BASE_URL"),
+        description="Base URL for Gemini API",
+    )
+
+    # Agent Provider Routing
+    agent_provider_routing: dict[str, dict[str, str]] = Field(
+        default_factory=lambda: dict(DEFAULT_AGENT_PROVIDER_ROUTING),
+        description="Routing configuration for agents to primary and fallback LLM providers",
+    )
+
+    # Legacy / Generic LLM Provider (backward compatibility)
     llm_provider: str = Field(
         default="deterministic", description="deterministic | openai | anthropic | gemini | custom"
     )
@@ -61,6 +151,15 @@ class Settings(BaseSettings):
     investigation_max_seconds: float = Field(
         default=30.0, description="Maximum wall-clock seconds for an investigation"
     )
+
+    @model_validator(mode="after")
+    def validate_verification_independence(self) -> Self:
+        validate_routing_independence(
+            self.agent_provider_routing,
+            environment=self.environment,
+            strict=False,
+        )
+        return self
 
 
 @lru_cache

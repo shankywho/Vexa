@@ -185,6 +185,7 @@ class InvestigationFinding(BaseModel):
     executive_summary: str = ""
     markdown_dossier: str = ""
     agent_run_id: uuid.UUID | None = None
+    provider_name: str | None = None
 
     @property
     def cited_record_ids(self) -> list[str]:
@@ -232,4 +233,5 @@ class InvestigationFinding(BaseModel):
             "executive_summary": self.executive_summary,
             "markdown_dossier": self.markdown_dossier,
             "agent_run_id": str(self.agent_run_id) if self.agent_run_id else None,
+            "provider_name": self.provider_name,
         }

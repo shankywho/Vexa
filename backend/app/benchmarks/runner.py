@@ -18,7 +18,10 @@ from app.benchmarks.types import BenchmarkRunSummary, ScenarioBenchmarkResult
 from app.domain.enums import ExceptionSeverity, ExceptionType
 from app.investigation.calibration import ConfidenceCalibrator
 from app.investigation.citation_validator import CitationValidator
-from app.investigation.llm_provider import DeterministicInvestigationProvider
+from app.investigation.llm_provider import (
+    LLMProvider,
+    get_provider_for_agent,
+)
 from app.investigation.types import (
     AutonomyAction,
     EvidenceDossier,
@@ -84,6 +87,7 @@ class CFOBenchRunner:
         repo: BenchmarkRepository | None = None,
         session: AsyncSession | None = None,
         company_id: uuid.UUID | None = None,
+        provider: LLMProvider | None = None,
     ) -> None:
         p = Path(ground_truth_path)
         if not p.exists():
@@ -93,7 +97,7 @@ class CFOBenchRunner:
         self.repo = repo or benchmark_repository
         self.session = session
         self.company_id = company_id
-        self.provider = DeterministicInvestigationProvider()
+        self.provider = provider or get_provider_for_agent("investigation_agent")
         self.calibrator = ConfidenceCalibrator()
         self.validator = CitationValidator()
 
@@ -148,6 +152,7 @@ class CFOBenchRunner:
             "CASH_ANOMALY": ExceptionType.CASH_ANOMALY,
             "VENDOR_BANK_CHANGE_ANOMALY": ExceptionType.VENDOR_BANK_CHANGE_ANOMALY,
             "DATA_INGESTION_GAP": ExceptionType.DATA_INGESTION_GAP,
+            "BANK_DUPLICATE": ExceptionType.BANK_DUPLICATE,
         }
 
         total = len(self.ground_truth)

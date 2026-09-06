@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from decimal import Decimal
@@ -14,6 +15,7 @@ from app.db.base import utcnow
 from app.db.models.agent import AgentRun, AgentStep
 from app.db.repository import ExceptionRepository
 from app.domain.enums import AgentRunStatus, AuditEventType
+from app.investigation.llm_provider import LLMProvider, get_provider_for_agent
 from app.verification.engine import (
     EvidenceCompletenessVerifier,
     IndependentCalculationVerifier,
@@ -21,15 +23,24 @@ from app.verification.engine import (
 )
 from app.verification.types import VerificationRequest, VerificationResult
 
+logger = logging.getLogger(__name__)
+
 VERIFIER_PROMPT_VERSION_ID = "verifier-v1"
 
 
 class VerificationAgent:
     """Independent verification agent that verifies investigation findings against DB evidence."""
 
-    def __init__(self, session: AsyncSession, company_id: uuid.UUID) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        company_id: uuid.UUID,
+        provider: LLMProvider | None = None,
+    ) -> None:
         self.session = session
         self.company_id = company_id
+        self.provider = provider or get_provider_for_agent("verification_agent")
+        self.provider_name = getattr(self.provider, "provider_name", "groq")
         self.calc_verifier = IndependentCalculationVerifier()
         self.evidence_verifier = EvidenceCompletenessVerifier()
         self.policy_verifier = PolicyGateVerifier()
@@ -49,6 +60,7 @@ class VerificationAgent:
             )
 
         # 2. Initialize AgentRun
+        model_name = getattr(self.provider, "model", self.provider_name)
         run = AgentRun(
             company_id=self.company_id,
             close_run_id=request.close_run_id or exception.close_run_id,
@@ -56,7 +68,7 @@ class VerificationAgent:
             agent_name="verification_agent",
             status=AgentRunStatus.RUNNING,
             prompt_version_id=VERIFIER_PROMPT_VERSION_ID,
-            model="deterministic_verifier",
+            model=model_name,
             started_at=started_at,
         )
         self.session.add(run)
@@ -206,6 +218,17 @@ class VerificationAgent:
         if not calc_valid or not evidence_complete:
             calibrated_conf = min(calibrated_conf, Decimal("0.4000"))
 
+        # Verification independence check (Requirement 3)
+        independence_compromised = False
+        inv_provider = getattr(request.finding, "provider_name", None)
+        if inv_provider and self.provider_name and inv_provider == self.provider_name:
+            independence_compromised = True
+            logger.warning(
+                "WARNING: Verification independence compromised — both investigation and verification used %s. Calibrated confidence penalty applied.",
+                self.provider_name,
+            )
+            calibrated_conf = max(Decimal("0.0000"), calibrated_conf - Decimal("0.1000"))
+
         s5 = AgentStep(
             agent_run_id=run.id,
             step_number=step_number,
@@ -218,6 +241,7 @@ class VerificationAgent:
                 {
                     "calibrated_confidence": str(calibrated_conf),
                     "min_confidence_met": calibrated_conf >= request.policy.min_confidence,
+                    "independence_compromised": independence_compromised,
                 },
                 default=str,
             ),
@@ -245,10 +269,12 @@ class VerificationAgent:
             calculation_valid=calc_valid,
             recalculated_impact=recalc_impact,
             variance_diff=var_diff,
+            independence_compromised=independence_compromised,
             notes=(
                 f"Verified: {is_verified}. Autonomy: {recommended_autonomy}. "
                 f"Calculations: {'PASS' if calc_valid else 'FAIL'}. "
                 f"Evidence: {'PASS' if evidence_complete else 'FAIL'}."
+                f"{' [INDEPENDENCE COMPROMISED]' if independence_compromised else ''}"
             ),
         )
 
@@ -271,6 +297,7 @@ class VerificationAgent:
                 "verified": is_verified,
                 "recommended_autonomy": str(recommended_autonomy),
                 "calibrated_confidence": str(calibrated_conf),
+                "independence_compromised": independence_compromised,
                 "latency_ms": total_latency_ms,
             },
         )
@@ -290,6 +317,7 @@ class VerificationAgent:
                         "verified": is_verified,
                         "recommended_autonomy": str(recommended_autonomy),
                         "calibrated_confidence": str(calibrated_conf),
+                        "independence_compromised": independence_compromised,
                         "latency_ms": total_latency_ms,
                     },
                 )

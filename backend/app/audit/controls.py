@@ -53,6 +53,7 @@ EXCEPTION_CONTROL_MAP: dict[ExceptionType | str, str] = {
     ExceptionType.AR_MISMATCH: SoxControl.REV_01,
     ExceptionType.ACCRUAL_ANOMALY: SoxControl.EXP_01,
     ExceptionType.UNUSUAL_VENDOR_ACTIVITY: SoxControl.AP_07,
+    ExceptionType.BANK_DUPLICATE: SoxControl.BANK_01,
 }
 
 # Deterministic mapping from CloseTaskType to SoxControl

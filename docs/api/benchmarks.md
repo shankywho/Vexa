@@ -1,6 +1,6 @@
 # Benchmarks API Reference
 
-Endpoints for triggering evaluation runs against the 35 ground-truth scenarios and inspecting calibration reports. Router: [`backend/app/api/routes/benchmarks.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/api/routes/benchmarks.py).
+Endpoints for triggering evaluation runs against the 35 ground-truth scenarios and inspecting calibration reports. Router: [`backend/app/api/routes/benchmarks.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/benchmarks.py).
 
 ---
 
@@ -9,7 +9,7 @@ Endpoints for triggering evaluation runs against the 35 ground-truth scenarios a
 ### 1. List Benchmark Runs
 `GET /api/benchmarks`
 * **Description:** Lists historical benchmark evaluation runs and aggregate metrics.
-* **Response:** Array of [`BenchmarkRunSummary`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/benchmarks/types.py).
+* **Response:** Array of [`BenchmarkRunSummary`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/benchmarks/types.py).
 
 ### 2. Execute Benchmark Run
 `POST /api/benchmarks/run` (Status: `201 Created`)
@@ -35,7 +35,7 @@ Endpoints for triggering evaluation runs against the 35 ground-truth scenarios a
 ### 3. Get Confidence Calibration Report
 `GET /api/benchmarks/calibration`
 * **Description:** Retrieves the latest calibration breakdown across confidence buckets ($[0.9-1.0]$, $[0.8-0.9]$, etc.) and the empirical Expected Calibration Error (ECE).
-* **Response:** [`ConfidenceCalibrationReport`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/domain/schemas.py).
+* **Response:** [`ConfidenceCalibrationReport`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
 
 ### 4. Get Benchmark Run by ID
 `GET /api/benchmarks/{id}`

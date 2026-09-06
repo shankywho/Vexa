@@ -18,7 +18,7 @@ uv run pytest
 
 ## 2. Test Partitioning
 
-### Unit Tests ([`backend/tests/unit/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/tests/unit/))
+### Unit Tests ([`backend/tests/unit/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/unit/))
 Fast tests validating core logic without requiring external services:
 ```bash
 # Run unit test suite
@@ -31,7 +31,7 @@ uv run pytest tests/unit/test_investigation_citation_validator.py
 uv run pytest tests/unit/test_verification_agent.py
 ```
 
-### Integration Tests ([`backend/tests/integration/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/tests/integration/))
+### Integration Tests ([`backend/tests/integration/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/integration/))
 End-to-end tests validating database transactions and multi-tenant isolation against local PostgreSQL (`vexa_test`):
 ```bash
 # Run integration test suite

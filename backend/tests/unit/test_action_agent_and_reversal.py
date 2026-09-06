@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.action.agent import ActionAgent
 from app.action.reversal import ReversalEngine
+from app.action.service import ActionService
 from app.action.tools import ActionTools
 from app.action.types import ActionType
 from app.audit.service import AuditService
@@ -242,3 +243,94 @@ async def test_action_agent_governed_execution(
     run = action_runs[0]
     assert run.status == AgentRunStatus.COMPLETED
     assert len(run.steps) == 2
+
+
+@pytest.mark.asyncio
+async def test_approve_exception_sod_violation_material(
+    db: AsyncSession, company: Company, open_exception: ExceptionRecord
+):
+    """Approver cannot approve their own staged action if financial impact exceeds materiality threshold."""
+    open_exception.financial_impact = Decimal("75000.00")
+    await db.flush()
+
+    action_service = ActionService(db, company.id)
+    # Preparer stages a journal entry
+    staged = await action_service.tools.stage_journal_entry(
+        exception_id=open_exception.id,
+        memo="Material adjustment",
+        lines=[{"debit": "75000.00", "credit": "75000.00"}],
+        actor="accountant_jane",
+    )
+    assert staged.status == "STAGED"
+
+    # Same preparer attempts to approve -> must fail SoD check
+    with pytest.raises(ValueError, match="Segregation-of-duties violation"):
+        await action_service.approve_exception(
+            exception_id=open_exception.id,
+            actor="accountant_jane",
+        )
+
+    # Confirm audit log records SOD_VIOLATION event
+    audit_events = await action_service.audit_service.list()
+    sod_events = [
+        e for e in audit_events
+        if e.event_type == AuditEventType.EXCEPTION_DECISION
+        and e.decision == "SOD_VIOLATION"
+    ]
+    assert len(sod_events) == 1
+    assert sod_events[0].actor == "accountant_jane"
+    assert "Segregation-of-duties violation" in sod_events[0].reason
+
+
+@pytest.mark.asyncio
+async def test_approve_exception_sod_allowed_immaterial(
+    db: AsyncSession, company: Company, open_exception: ExceptionRecord
+):
+    """Accountants can self-approve immaterial / trivial staged actions within policy threshold."""
+    open_exception.financial_impact = Decimal("5000.00")
+    await db.flush()
+
+    action_service = ActionService(db, company.id)
+    staged = await action_service.tools.stage_journal_entry(
+        exception_id=open_exception.id,
+        memo="Minor adjustment",
+        lines=[{"debit": "5000.00", "credit": "5000.00"}],
+        actor="accountant_jane",
+    )
+    assert staged.status == "STAGED"
+
+    # Preparer self-approves immaterial adjustment -> succeeds
+    result = await action_service.approve_exception(
+        exception_id=open_exception.id,
+        actor="accountant_jane",
+    )
+    assert result.status == "EXECUTED"
+    await db.refresh(open_exception)
+    assert open_exception.status == ExceptionStatus.RESOLVED
+
+
+@pytest.mark.asyncio
+async def test_approve_exception_independent_reviewer_succeeds(
+    db: AsyncSession, company: Company, open_exception: ExceptionRecord
+):
+    """Independent reviewer can approve material staged actions prepared by another actor."""
+    open_exception.financial_impact = Decimal("125000.00")
+    await db.flush()
+
+    action_service = ActionService(db, company.id)
+    staged = await action_service.tools.stage_journal_entry(
+        exception_id=open_exception.id,
+        memo="Major material adjustment",
+        lines=[{"debit": "125000.00", "credit": "125000.00"}],
+        actor="accountant_jane",
+    )
+    assert staged.status == "STAGED"
+
+    # Independent reviewer approves -> succeeds
+    result = await action_service.approve_exception(
+        exception_id=open_exception.id,
+        actor="controller_bob",
+    )
+    assert result.status == "EXECUTED"
+    await db.refresh(open_exception)
+    assert open_exception.status == ExceptionStatus.RESOLVED

@@ -6,7 +6,7 @@ This document details the deterministic rules, tolerances, multi-currency conver
 
 ## 1. Rule Catalog & Tolerances
 
-All tolerances are configured in [`app/reconciliation/config.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/reconciliation/config.py):
+All tolerances are configured in [`app/reconciliation/config.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/config.py):
 
 | Rule / Field | Default Tolerance | Description |
 | :--- | :---: | :--- |
@@ -20,7 +20,7 @@ All tolerances are configured in [`app/reconciliation/config.py`](file:///Users/
 
 ## 2. Three-Way Matching Algorithm
 
-Implemented in [`evaluate_three_way_match`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/reconciliation/rules.py#L30):
+Implemented in [`evaluate_three_way_match`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/rules.py#L30):
 
 ```
 Invoice (Total, Lines)
@@ -32,7 +32,7 @@ Invoice (Total, Lines)
 1. **Purchase Order Authorization:**
    If `Invoice.po_id` is missing and invoice is non-recurring, emits `MISSING_DOCUMENT`.
 2. **Multi-Currency Normalization:**
-   If `Invoice.currency != PO.currency`, calls [`FxService.convert`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/services/fx_service.py) on `Invoice.invoice_date`.
+   If `Invoice.currency != PO.currency`, calls [`FxService.convert`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/services/fx_service.py) on `Invoice.invoice_date`.
 3. **Total Price Variance:**
    $$\Delta_{price} = | \text{Invoice.total} - \text{PO.total} |$$
    If $\Delta_{price} > 0.01$ and $\frac{\Delta_{price}}{\text{PO.total}} > 0.01$, flags `PO_MISMATCH`.
@@ -45,7 +45,7 @@ Invoice (Total, Lines)
 
 ## 3. Bank Statement to Payment Matching
 
-Implemented in [`match_bank_tx_to_payments`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/reconciliation/rules.py#L180):
+Implemented in [`match_bank_tx_to_payments`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/rules.py#L180):
 * **Amount Comparison:** Matches bank line amount against payment disbursement amount within `$0.01`.
 * **Date Window:** Settlement date must fall within $\pm 7$ calendar days of `Payment.payment_date`.
 * **Reference Heuristics:** Matches check numbers, wire beneficiary references, or invoice numbers embedded in bank line descriptions.
@@ -58,6 +58,6 @@ Implemented in [`match_bank_tx_to_payments`](file:///Users/shankar/.ao/data/work
 
 ## 4. General Ledger Double-Entry Rules
 
-Implemented in [`verify_journal_entry_balance`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/reconciliation/rules.py#L260):
+Implemented in [`verify_journal_entry_balance`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/rules.py#L260):
 $$\sum \text{Debits} - \sum \text{Credits} = 0.00$$
 If the imbalance exceeds `$0.00`, the transaction violates fundamental accounting law and is flagged as `GL_MAPPING_ERROR`.

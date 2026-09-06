@@ -12,10 +12,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
-from decimal import Decimal
+from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
 from app.domain.enums import ExceptionType, Role
 from app.investigation.types import (
@@ -33,8 +37,53 @@ from app.investigation.types import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class LLMCallMetadata:
+    """Metadata recorded for every external LLM invocation."""
+
+    provider: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    latency_ms: int
+    cost_usd: Decimal
+
+
+def clean_json_payload(raw_text: str) -> str:
+    """Strip markdown code fence blocks and extract JSON payload from LLM responses."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+
+    if not (cleaned.startswith("{") or cleaned.startswith("[")):
+        start_idx = cleaned.find("{")
+        end_idx = cleaned.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            cleaned = cleaned[start_idx : end_idx + 1]
+    return cleaned.strip()
+
+
 class LLMProvider(ABC):
     """Abstract interface for investigation reasoning providers."""
+
+    provider_name: str = "base"
+
+    @abstractmethod
+    async def generate_structured(
+        self,
+        prompt: str,
+        response_schema: type[BaseModel],
+        timeout_seconds: float = 30.0,
+        system_prompt: str | None = None,
+    ) -> BaseModel:
+        """Generate structured output adhering to response_schema."""
+        ...
 
     @abstractmethod
     async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
@@ -50,7 +99,29 @@ class DeterministicInvestigationProvider(LLMProvider):
     zero hallucination, and rigorous claim classification.
     """
 
+    provider_name: str = "deterministic"
+
+    async def generate_structured(
+        self,
+        prompt: str,
+        response_schema: type[BaseModel],
+        timeout_seconds: float = 30.0,
+        system_prompt: str | None = None,
+    ) -> BaseModel:
+        try:
+            return response_schema()
+        except Exception:
+            raise NotImplementedError(
+                "DeterministicInvestigationProvider only evaluates rule-grounded financial models "
+                "via generate_finding()."
+            )
+
     async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
+        finding = await self._generate_finding_internal(request)
+        finding.provider_name = self.provider_name
+        return finding
+
+    async def _generate_finding_internal(self, request: InvestigationRequest) -> InvestigationFinding:
         dossier = request.dossier
         exc_type = dossier.exception_type
         impact = dossier.financial_impact
@@ -87,6 +158,8 @@ class DeterministicInvestigationProvider(LLMProvider):
                 return self._analyze_vendor_bank_change(request)
             case ExceptionType.DATA_INGESTION_GAP:
                 return self._analyze_data_ingestion_gap(request)
+            case ExceptionType.BANK_DUPLICATE:
+                return self._analyze_bank_duplicate(request)
             case _:
                 if impact == Decimal("0.00"):
                     return self._analyze_clean_transaction(request)
@@ -1594,6 +1667,91 @@ class DeterministicInvestigationProvider(LLMProvider):
             markdown_dossier=dossier.markdown_dossier,
         )
 
+    def _analyze_bank_duplicate(self, request: InvestigationRequest) -> InvestigationFinding:
+        dossier = request.dossier
+        p_rec = dossier.primary_record
+        p_id = p_rec.get("record_id", str(dossier.exception_id))
+        p_node_id = p_rec.get("node_id", f"bank_transaction:{p_id}")
+
+        facts = [
+            Fact(
+                statement=(
+                    f"Bank transaction {p_id} of {dossier.currency} {dossier.financial_impact} "
+                    f"is an identical duplicate transaction on the bank statement."
+                ),
+                evidence_id=p_node_id,
+                record_type="bank_transaction",
+                record_id=p_id,
+            )
+        ]
+
+        likely_cause = "Duplicate bank feed transmission or identical duplicate transaction processed by bank"
+        action = AutonomyAction.STAGE
+        role = Role.ACCOUNTANT
+        rec_action = "Stage adjustment to exclude duplicate bank transaction and verify bank statement feed."
+
+        rc = RootCauseAnalysis(
+            primary_category="BANK_DUPLICATE",
+            summary=(
+                f"Duplicate bank transaction of {dossier.currency} {dossier.financial_impact} "
+                f"detected on bank statement."
+            ),
+            likely_cause=likely_cause,
+            is_genuine_discrepancy=True,
+            is_timing_or_operational=False,
+        )
+
+        rec = InvestigationRecommendation(
+            action=action,
+            target_role=role,
+            recommended_action=rec_action,
+            should_block_close=False,
+            should_escalate_to_cfo=False,
+            controller_review_checklist=[
+                "Confirm whether transaction cleared once or twice on actual bank portal.",
+                "Review bank feed ingestion logs for duplicate transmission files.",
+                "Stage bank reconciliation adjustment entry if bank error.",
+            ],
+        )
+
+        answers = {
+            request.questions[0]: "Triggered due to duplicate transaction detected on bank statement.",
+            request.questions[1]: f"Bank transaction records matching {p_id}.",
+            request.questions[2]: "Genuine discrepancy: duplicate bank transaction entry.",
+            request.questions[3]: likely_cause,
+            request.questions[4]: f"Duplicate bank amount of {dossier.currency} {dossier.financial_impact}.",
+            request.questions[5]: "No, does not block close once staged for adjustment.",
+            request.questions[6]: "No, operational accountant review required.",
+            request.questions[7]: rec_action,
+        }
+
+        return InvestigationFinding(
+            exception_id=dossier.exception_id,
+            exception_type=dossier.exception_type,
+            finding_status=FindingStatus.HUMAN_REVIEW_REQUIRED,
+            facts=facts,
+            inferences=[
+                Inference(
+                    statement=(
+                        "Duplicate bank statement record inflates cash flow debits/credits without supporting business transaction."
+                    ),
+                    supported_by_evidence_ids=[p_node_id],
+                    confidence=Decimal("0.9600"),
+                )
+            ],
+            uncertainties=["Whether bank has issued an automatic reversal memo."],
+            missing_evidence=[],
+            root_cause_analysis=rc,
+            recommendation=rec,
+            raw_confidence=Decimal("0.9600"),
+            calibrated_confidence=Decimal("0.9200"),
+            answers_to_questions=answers,
+            executive_summary=(
+                f"Duplicate bank transaction detected ({dossier.currency} {dossier.financial_impact}): {likely_cause}."
+            ),
+            markdown_dossier=dossier.markdown_dossier,
+        )
+
     def _analyze_generic_exception(self, request: InvestigationRequest) -> InvestigationFinding:
         dossier = request.dossier
         p_rec = dossier.primary_record
@@ -1667,6 +1825,419 @@ class DeterministicInvestigationProvider(LLMProvider):
         )
 
 
+class BaseStructuredLLMProvider(LLMProvider):
+    """Base class for HTTP-based LLM adapters generating structured output."""
+
+    provider_name: str = "base_llm"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        base_url: str,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.last_call_metadata: LLMCallMetadata | None = None
+
+    @abstractmethod
+    async def _call_llm_json(
+        self,
+        prompt: str,
+        system_prompt: str,
+        timeout_seconds: float,
+    ) -> tuple[dict[str, Any], LLMCallMetadata]:
+        """Execute HTTP request to LLM and return parsed raw JSON dictionary and call metadata."""
+        ...
+
+    async def generate_structured(
+        self,
+        prompt: str,
+        response_schema: type[BaseModel],
+        timeout_seconds: float = 30.0,
+        system_prompt: str | None = None,
+    ) -> BaseModel:
+        schema_json = json.dumps(response_schema.model_json_schema(), indent=2)
+        effective_sys_prompt = (
+            (system_prompt or "You are an expert financial analysis assistant.")
+            + f"\n\nYou MUST respond with valid JSON matching this schema exactly:\n{schema_json}"
+        )
+        data, metadata = await self._call_llm_json(
+            prompt=prompt,
+            system_prompt=effective_sys_prompt,
+            timeout_seconds=timeout_seconds,
+        )
+        self.last_call_metadata = metadata
+        return response_schema.model_validate(data)
+
+    async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
+        from app.investigation.citation_validator import CitationValidator
+        from app.investigation.prompt import (
+            CFO_INVESTIGATOR_SYSTEM_PROMPT,
+            format_investigation_user_prompt,
+        )
+
+        dossier = request.dossier
+        user_prompt = format_investigation_user_prompt(
+            dossier=dossier,
+            questions=request.questions,
+        )
+        timeout = request.timeout_seconds or self.timeout_seconds
+
+        schema_json = json.dumps(InvestigationFinding.model_json_schema(), indent=2)
+        effective_sys_prompt = (
+            CFO_INVESTIGATOR_SYSTEM_PROMPT
+            + f"\n\nYou MUST respond with valid JSON matching this schema exactly:\n{schema_json}"
+        )
+
+        data, metadata = await self._call_llm_json(
+            prompt=user_prompt,
+            system_prompt=effective_sys_prompt,
+            timeout_seconds=timeout,
+        )
+        self.last_call_metadata = metadata
+
+        # Zero arithmetic authority: Enforce that financial impact, currency, exception_id, and exception_type come strictly from dossier
+        data["exception_id"] = dossier.exception_id
+        data["exception_type"] = dossier.exception_type
+        data["financial_impact"] = dossier.financial_impact
+        data["currency"] = dossier.currency
+        data["provider_name"] = self.provider_name
+
+        finding = InvestigationFinding.model_validate(data)
+
+        # Citation validation: Zero hallucination check
+        validator = CitationValidator()
+        citation_res = validator.validate_finding(finding, dossier)
+        if not citation_res.is_valid or citation_res.hallucinated_citations:
+            raise ValueError(
+                f"LLM produced hallucinated citations: {citation_res.hallucinated_citations}"
+            )
+
+        return finding
+
+
+class GroqProvider(BaseStructuredLLMProvider):
+    """Groq LLM adapter using native JSON mode (qwen/qwen3.8-27b)."""
+
+    provider_name: str = "groq"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "qwen/qwen3.8-27b",
+        base_url: str = "https://api.groq.com/openai/v1",
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        super().__init__(api_key=api_key, model=model, base_url=base_url, timeout_seconds=timeout_seconds)
+
+    async def _call_llm_json(
+        self,
+        prompt: str,
+        system_prompt: str,
+        timeout_seconds: float,
+    ) -> tuple[dict[str, Any], LLMCallMetadata]:
+        start_time = time.monotonic()
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+        }
+
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        content = data["choices"][0]["message"]["content"]
+        cleaned_json = clean_json_payload(content)
+        parsed_data = json.loads(cleaned_json)
+
+        usage = data.get("usage", {})
+        in_tok = usage.get("prompt_tokens", 0)
+        out_tok = usage.get("completion_tokens", 0)
+        tot_tok = usage.get("total_tokens", in_tok + out_tok)
+        cost = Decimal(str(in_tok)) * Decimal("0.00000059") + Decimal(str(out_tok)) * Decimal("0.00000079")
+        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+
+        meta = LLMCallMetadata(
+            provider="groq",
+            model=self.model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            total_tokens=tot_tok,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+        )
+        logger.info(
+            "Groq LLM call: model=%s in_tok=%d out_tok=%d latency=%dms cost=$%s",
+            self.model, in_tok, out_tok, latency_ms, cost_usd,
+        )
+        return parsed_data, meta
+
+
+class MistralProvider(BaseStructuredLLMProvider):
+    """Mistral AI LLM adapter using native JSON mode (codestral-latest)."""
+
+    provider_name: str = "mistral"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "codestral-latest",
+        base_url: str = "https://api.mistral.ai/v1",
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        super().__init__(api_key=api_key, model=model, base_url=base_url, timeout_seconds=timeout_seconds)
+
+    async def _call_llm_json(
+        self,
+        prompt: str,
+        system_prompt: str,
+        timeout_seconds: float,
+    ) -> tuple[dict[str, Any], LLMCallMetadata]:
+        start_time = time.monotonic()
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+        }
+
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        content = data["choices"][0]["message"]["content"]
+        cleaned_json = clean_json_payload(content)
+        parsed_data = json.loads(cleaned_json)
+
+        usage = data.get("usage", {})
+        in_tok = usage.get("prompt_tokens", 0)
+        out_tok = usage.get("completion_tokens", 0)
+        tot_tok = usage.get("total_tokens", in_tok + out_tok)
+        cost = Decimal(str(in_tok)) * Decimal("0.00000030") + Decimal(str(out_tok)) * Decimal("0.00000090")
+        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+
+        meta = LLMCallMetadata(
+            provider="mistral",
+            model=self.model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            total_tokens=tot_tok,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+        )
+        logger.info(
+            "Mistral LLM call: model=%s in_tok=%d out_tok=%d latency=%dms cost=$%s",
+            self.model, in_tok, out_tok, latency_ms, cost_usd,
+        )
+        return parsed_data, meta
+
+
+class GeminiProvider(BaseStructuredLLMProvider):
+    """Google Gemini LLM adapter using native JSON mode (gemini-3.5-flash-lite)."""
+
+    provider_name: str = "gemini"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gemini-3.5-flash-lite",
+        base_url: str = "https://generativelanguage.googleapis.com/v1beta/models",
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        super().__init__(api_key=api_key, model=model, base_url=base_url, timeout_seconds=timeout_seconds)
+
+    async def _call_llm_json(
+        self,
+        prompt: str,
+        system_prompt: str,
+        timeout_seconds: float,
+    ) -> tuple[dict[str, Any], LLMCallMetadata]:
+        start_time = time.monotonic()
+        headers = {
+            "x-goog-api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ],
+            "systemInstruction": {
+                "parts": [{"text": system_prompt}],
+            },
+            "generationConfig": {
+                "temperature": 0.0,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        endpoint = f"{self.base_url}/{self.model}:generateContent"
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.post(
+                endpoint,
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise ValueError(f"Gemini returned empty candidates: {data}")
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            raise ValueError(f"Gemini candidate has no text parts: {candidates[0]}")
+
+        content = ""
+        for p in parts:
+            if "text" in p and p["text"]:
+                content = p["text"]
+                if "{" in content:
+                    break
+        if not content and "text" in parts[0]:
+            content = parts[0]["text"]
+
+        cleaned_json = clean_json_payload(content)
+        parsed_data = json.loads(cleaned_json)
+
+        usage = data.get("usageMetadata", {})
+        in_tok = usage.get("promptTokenCount", 0)
+        out_tok = usage.get("candidatesTokenCount", 0)
+        tot_tok = usage.get("totalTokenCount", in_tok + out_tok)
+        cost = Decimal(str(in_tok)) * Decimal("0.00000010") + Decimal(str(out_tok)) * Decimal("0.00000040")
+        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+
+        meta = LLMCallMetadata(
+            provider="gemini",
+            model=self.model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            total_tokens=tot_tok,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+        )
+        logger.info(
+            "Gemini LLM call: model=%s in_tok=%d out_tok=%d latency=%dms cost=$%s",
+            self.model, in_tok, out_tok, latency_ms, cost_usd,
+        )
+        return parsed_data, meta
+
+
+class RealLLMInvestigationProvider(BaseStructuredLLMProvider):
+    """External LLM-backed Investigation Analyst with structured output & citation validation.
+
+    Governance constraints (spec sections 5.2, 10, 11):
+    1. Read-Only / Zero Arithmetic Authority: Financial impact and currency come strictly from
+       the bounded EvidenceDossier, never invented or computed by LLM.
+    2. Zero Hallucination: Citations are validated strictly against the bounded EvidenceDossier.
+    3. Structured Schema: Outputs adhere strictly to InvestigationFinding.
+    """
+
+    provider_name: str = "custom"
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o",
+        base_url: str | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            base_url=base_url or "https://api.openai.com/v1",
+            timeout_seconds=timeout_seconds,
+        )
+
+    async def _call_llm_json(
+        self,
+        prompt: str,
+        system_prompt: str,
+        timeout_seconds: float,
+    ) -> tuple[dict[str, Any], LLMCallMetadata]:
+        start_time = time.monotonic()
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.0,
+        }
+
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        content = data["choices"][0]["message"]["content"]
+        cleaned_json = clean_json_payload(content)
+        parsed_data = json.loads(cleaned_json)
+
+        usage = data.get("usage", {})
+        in_tok = usage.get("prompt_tokens", 0)
+        out_tok = usage.get("completion_tokens", 0)
+        tot_tok = usage.get("total_tokens", in_tok + out_tok)
+        cost = Decimal(str(in_tok)) * Decimal("0.00000250") + Decimal(str(out_tok)) * Decimal("0.00001000")
+        cost_usd = cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+
+        meta = LLMCallMetadata(
+            provider="openai",
+            model=self.model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            total_tokens=tot_tok,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+        )
+        return parsed_data, meta
+
+
 class FallbackLLMProvider(LLMProvider):
     """Executes primary provider with timeout and fallback (spec section 5.2)."""
 
@@ -1674,9 +2245,61 @@ class FallbackLLMProvider(LLMProvider):
         self,
         primary_provider: LLMProvider,
         fallback_provider: LLMProvider | None = None,
+        agent_name: str = "unspecified",
     ) -> None:
         self.primary_provider = primary_provider
         self.fallback_provider = fallback_provider or DeterministicInvestigationProvider()
+        self.agent_name = agent_name
+
+    @property
+    def provider_name(self) -> str:
+        return getattr(self.primary_provider, "provider_name", "fallback")
+
+    async def generate_structured(
+        self,
+        prompt: str,
+        response_schema: type[BaseModel],
+        timeout_seconds: float = 30.0,
+        system_prompt: str | None = None,
+    ) -> BaseModel:
+        try:
+            return await asyncio.wait_for(
+                self.primary_provider.generate_structured(
+                    prompt=prompt,
+                    response_schema=response_schema,
+                    timeout_seconds=timeout_seconds,
+                    system_prompt=system_prompt,
+                ),
+                timeout=timeout_seconds,
+            )
+        except (TimeoutError, asyncio.TimeoutError):
+            logger.warning(
+                "Primary provider %s timed out after %.2fs for agent %s. Falling back to %s.",
+                getattr(self.primary_provider, "provider_name", "primary"),
+                timeout_seconds,
+                self.agent_name,
+                getattr(self.fallback_provider, "provider_name", "fallback"),
+            )
+            return await self.fallback_provider.generate_structured(
+                prompt=prompt,
+                response_schema=response_schema,
+                timeout_seconds=timeout_seconds,
+                system_prompt=system_prompt,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Primary provider %s failed for agent %s (%s). Falling back to %s.",
+                getattr(self.primary_provider, "provider_name", "primary"),
+                self.agent_name,
+                exc,
+                getattr(self.fallback_provider, "provider_name", "fallback"),
+            )
+            return await self.fallback_provider.generate_structured(
+                prompt=prompt,
+                response_schema=response_schema,
+                timeout_seconds=timeout_seconds,
+                system_prompt=system_prompt,
+            )
 
     async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
         timeout = request.timeout_seconds
@@ -1688,24 +2311,30 @@ class FallbackLLMProvider(LLMProvider):
             return finding
         except (TimeoutError, asyncio.TimeoutError):
             logger.warning(
-                "Primary provider timed out after %.2fs for exception %s. Falling back"
-                "to deterministic provider.",
+                "Primary provider %s timed out after %.2fs for exception %s (agent %s). Falling back to %s.",
+                getattr(self.primary_provider, "provider_name", "primary"),
                 timeout,
                 request.exception_id,
+                self.agent_name,
+                getattr(self.fallback_provider, "provider_name", "fallback"),
             )
             return await self.fallback_provider.generate_finding(request)
         except Exception as exc:
             logger.warning(
-                "Primary provider failed for exception %s (%s). Falling back to"
-                "deterministic provider.",
+                "Primary provider %s failed for exception %s (agent %s: %s). Falling back to %s.",
+                getattr(self.primary_provider, "provider_name", "primary"),
                 request.exception_id,
+                self.agent_name,
                 exc,
+                getattr(self.fallback_provider, "provider_name", "fallback"),
             )
             return await self.fallback_provider.generate_finding(request)
 
 
 class MockLLMProvider(LLMProvider):
     """Mock provider for unit testing timeout, hallucination, and error handling."""
+
+    provider_name: str = "mock"
 
     def __init__(
         self,
@@ -1719,6 +2348,21 @@ class MockLLMProvider(LLMProvider):
         self.raise_error = raise_error
         self.inject_hallucination = inject_hallucination
 
+    async def generate_structured(
+        self,
+        prompt: str,
+        response_schema: type[BaseModel],
+        timeout_seconds: float = 30.0,
+        system_prompt: str | None = None,
+    ) -> BaseModel:
+        if self.delay_seconds > 0:
+            await asyncio.sleep(self.delay_seconds)
+        if self.raise_error:
+            raise self.raise_error
+        if self.canned_finding and isinstance(self.canned_finding, response_schema):
+            return self.canned_finding
+        return response_schema()
+
     async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
         if self.delay_seconds > 0:
             await asyncio.sleep(self.delay_seconds)
@@ -1730,6 +2374,8 @@ class MockLLMProvider(LLMProvider):
         else:
             det = DeterministicInvestigationProvider()
             finding = await det.generate_finding(request)
+
+        finding.provider_name = self.provider_name
 
         if self.inject_hallucination:
             # Inject a fake record ID not in dossier
@@ -1746,109 +2392,145 @@ class MockLLMProvider(LLMProvider):
         return finding
 
 
-class RealLLMInvestigationProvider(LLMProvider):
-    """External LLM-backed Investigation Analyst with structured output & citation validation.
+def create_provider_by_name(
+    provider_name: str,
+    settings: Any | None = None,
+) -> LLMProvider | None:
+    """Instantiate a concrete LLM provider adapter based on provider name and configured keys."""
+    from app.config import get_settings
 
-    Governance constraints (spec sections 5.2, 10, 11):
-    1. Read-Only / Zero Arithmetic Authority: Financial impact and currency come strictly from
-       the bounded EvidenceDossier, never invented or computed by LLM.
-    2. Zero Hallucination: Citations are validated strictly against the bounded EvidenceDossier.
-    3. Structured Schema: Outputs adhere strictly to InvestigationFinding.
-    """
+    if settings is None:
+        settings = get_settings()
 
-    def __init__(
-        self,
-        api_key: str,
-        model: str = "gpt-4o",
-        base_url: str | None = None,
-        timeout_seconds: float = 30.0,
-    ) -> None:
-        self.api_key = api_key
-        self.model = model
-        self.base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
-        self.timeout_seconds = timeout_seconds
+    norm_name = provider_name.strip().lower()
+    if norm_name in ("deterministic", "rules"):
+        return DeterministicInvestigationProvider()
+    elif norm_name == "groq":
+        if not settings.groq_api_key:
+            return None
+        return GroqProvider(
+            api_key=settings.groq_api_key,
+            model=settings.groq_model,
+            base_url=settings.groq_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+    elif norm_name == "mistral":
+        if not settings.mistral_api_key:
+            return None
+        return MistralProvider(
+            api_key=settings.mistral_api_key,
+            model=settings.mistral_model,
+            base_url=settings.mistral_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+    elif norm_name == "gemini":
+        if not settings.gemini_api_key:
+            return None
+        return GeminiProvider(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_model,
+            base_url=settings.gemini_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+    elif norm_name in ("custom", "openai"):
+        if not settings.llm_api_key:
+            return None
+        return RealLLMInvestigationProvider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+    return None
 
-    async def generate_finding(self, request: InvestigationRequest) -> InvestigationFinding:
-        from app.investigation.citation_validator import CitationValidator
-        from app.investigation.prompt import (
-            CFO_INVESTIGATOR_SYSTEM_PROMPT,
-            format_investigation_user_prompt,
+
+def get_provider_for_agent(
+    agent_name: str,
+    settings: Any | None = None,
+) -> LLMProvider:
+    """Resolve the multi-provider LLM chain for a specific agent with automatic fallbacks."""
+    from app.config import DEFAULT_AGENT_PROVIDER_ROUTING, get_settings
+
+    if settings is None:
+        settings = get_settings()
+
+    deterministic_fallback = DeterministicInvestigationProvider()
+
+    routing = getattr(settings, "agent_provider_routing", DEFAULT_AGENT_PROVIDER_ROUTING)
+    route = routing.get(agent_name, DEFAULT_AGENT_PROVIDER_ROUTING.get(agent_name, {}))
+    primary_name = route.get("primary", "deterministic")
+    fallback_name = route.get("fallback", "deterministic")
+
+    if primary_name == "deterministic":
+        return deterministic_fallback
+
+    primary_provider = create_provider_by_name(primary_name, settings)
+
+    if primary_provider is None:
+        logger.warning(
+            "Primary provider '%s' has no credentials configured for agent '%s'. Falling back to '%s'.",
+            primary_name,
+            agent_name,
+            fallback_name,
+        )
+        if fallback_name == "deterministic":
+            return deterministic_fallback
+        fallback_provider = create_provider_by_name(fallback_name, settings)
+        if fallback_provider is None:
+            logger.warning(
+                "Secondary provider '%s' has no credentials configured for agent '%s'. Falling back to deterministic rule engine.",
+                fallback_name,
+                agent_name,
+            )
+            return deterministic_fallback
+        return FallbackLLMProvider(
+            primary_provider=fallback_provider,
+            fallback_provider=deterministic_fallback,
+            agent_name=agent_name,
         )
 
-        dossier = request.dossier
-        user_prompt = format_investigation_user_prompt(
-            dossier=dossier,
-            questions=[
-                "Why was this exception triggered?",
-                "Which records support the finding?",
-                "Is this a genuine financial discrepancy or a timing/operational issue?",
-                "What is the likely root cause?",
-                "What evidence is missing?",
-                "Should this block the close?",
-                "Should this be escalated?",
-                "What should a controller review?",
-            ],
-        )
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": CFO_INVESTIGATOR_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.0,
-        }
-
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            resp = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
+    # Primary provider is available. Resolve runtime secondary fallback.
+    if fallback_name == "deterministic":
+        secondary_chain = deterministic_fallback
+    else:
+        secondary_provider = create_provider_by_name(fallback_name, settings)
+        if secondary_provider is None:
+            logger.warning(
+                "Fallback provider '%s' has no credentials configured for agent '%s'. Using deterministic engine as runtime secondary.",
+                fallback_name,
+                agent_name,
             )
-            resp.raise_for_status()
-            data = resp.json()
-
-        content = data["choices"][0]["message"]["content"]
-        finding_dict = json.loads(content)
-
-        # Zero arithmetic authority: Enforce that financial impact, currency, exception_id, and exception_type come strictly from dossier
-        finding_dict["exception_id"] = dossier.exception_id
-        finding_dict["exception_type"] = dossier.exception_type
-        finding_dict["financial_impact"] = dossier.financial_impact
-        finding_dict["currency"] = dossier.currency
-
-        finding = InvestigationFinding.model_validate(finding_dict)
-
-        # Citation validation: Zero hallucination check
-        validator = CitationValidator()
-        citation_res = validator.validate_finding(finding, dossier)
-        if not citation_res.is_valid or citation_res.hallucinated_citations:
-            raise ValueError(
-                f"LLM produced hallucinated citations: {citation_res.hallucinated_citations}"
+            secondary_chain = deterministic_fallback
+        else:
+            secondary_chain = FallbackLLMProvider(
+                primary_provider=secondary_provider,
+                fallback_provider=deterministic_fallback,
+                agent_name=agent_name,
             )
 
-        return finding
+    return FallbackLLMProvider(
+        primary_provider=primary_provider,
+        fallback_provider=secondary_chain,
+        agent_name=agent_name,
+    )
 
 
 def get_default_llm_provider() -> LLMProvider:
-    """Return the configured investigation LLM provider with deterministic fallback."""
+    """Return the configured investigation LLM provider with multi-provider fallback."""
     from app.config import get_settings
 
     settings = get_settings()
-    fallback = DeterministicInvestigationProvider()
-
-    if settings.llm_api_key and settings.llm_provider != "deterministic":
+    if settings.llm_api_key and settings.llm_provider not in ("deterministic", "rules"):
         primary = RealLLMInvestigationProvider(
             api_key=settings.llm_api_key,
             model=settings.llm_model,
             base_url=settings.llm_base_url,
             timeout_seconds=settings.llm_timeout_seconds,
         )
-        return FallbackLLMProvider(primary_provider=primary, fallback_provider=fallback)
+        return FallbackLLMProvider(
+            primary_provider=primary,
+            fallback_provider=DeterministicInvestigationProvider(),
+            agent_name="legacy_investigation",
+        )
 
-    return fallback
+    return get_provider_for_agent("investigation_agent", settings)

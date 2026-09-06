@@ -6,7 +6,7 @@ The Close Workflow component orchestrates the month-end closing process, managin
 
 ## 1. Package Structure
 
-Located at [`backend/app/close_workflow/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/close_workflow/):
+Located at [`backend/app/close_workflow/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/):
 
 ```
 app/close_workflow/
@@ -65,7 +65,7 @@ DEFAULT_TASK_DEPENDENCIES = {
 
 ### 2.2 `CloseWorkflowStateMachine`
 Executes atomic Compare-And-Swap (CAS) state changes on database rows:
-* **Legal Transitions Map:** Enforces allowed transitions defined in [`ALLOWED_CLOSE_RUN_TRANSITIONS`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/close_workflow/state_machine.py#L26).
+* **Legal Transitions Map:** Enforces allowed transitions defined in [`ALLOWED_CLOSE_RUN_TRANSITIONS`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/state_machine.py#L26).
 * **CAS Concurrency Guard:** Updates require matching current `version` integer. If modified concurrently, raises `CloseRunError`.
 * **Audit & Streaming Hook:** Each transition immediately records an immutable `AuditEvent` and publishes a `close_run_state_change` event to the SSE bus.
 
@@ -76,17 +76,17 @@ Specialized task runner executing the domain logic for each task type:
 * **`BANK_RECONCILIATION`**: Matches bank feeds to disbursements; reconciles cash.
 * **`AP_RECONCILIATION`**: 3-way matching and vendor balance reconciliation.
 * **`AR_RECONCILIATION`**: Remittance matching; customer short-payment detection.
-* **`VARIANCE_ANALYSIS`**: Invokes [`FinancialAnalystAgent`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/analyst/agent.py) to identify balance sheet shifts.
+* **`VARIANCE_ANALYSIS`**: Invokes [`FinancialAnalystAgent`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/analyst/agent.py) to identify balance sheet shifts.
 * **`ACCRUAL_REVIEW`**: Reviews unbilled receipts (GRNI) and prepaid amortization.
-* **`EXCEPTION_REVIEW`**: Coordinates [`CFOInvestigationAgent`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/investigation/agent.py) and [`VerificationEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/verification/engine.py).
-* **`FINAL_VERIFICATION`**: Validates close completeness via [`CloseReadinessEvaluator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/close_workflow/readiness.py).
+* **`EXCEPTION_REVIEW`**: Coordinates [`CFOInvestigationAgent`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/agent.py) and [`VerificationEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/engine.py).
+* **`FINAL_VERIFICATION`**: Validates close completeness via [`CloseReadinessEvaluator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/readiness.py).
 * **`CLOSE_PACKAGE`**: Compiles the sealed close package JSON artifact.
 
 ---
 
 ## 3. Configuration & Policy: `ClosePolicy`
 
-Policy rules governing the close run are defined in [`app/close_workflow/types.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/close_workflow/types.py#L12):
+Policy rules governing the close run are defined in [`app/close_workflow/types.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/types.py#L12):
 
 ```python
 class ClosePolicy(BaseModel):

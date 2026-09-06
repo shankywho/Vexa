@@ -192,8 +192,8 @@ async def test_trace_recorder_and_player_stream(client: AsyncClient, client_sess
                 events.append(json.loads(line[6:]))
 
         assert len(events) >= 4
-        assert events[0]["event"] == "close_run_started"
-        assert any(e.get("event") == "task_update" for e in events)
+        assert events[0]["event"] == "close_run_state_change"
+        assert any(e.get("event") == "close_task_state_change" for e in events)
         assert any(e.get("event") == "agent_step" for e in events)
         assert events[-1]["event"] == "completed"
 
@@ -248,3 +248,97 @@ async def test_close_run_stream_in_replay_mode(client: AsyncClient, client_sessi
 
     # Reset
     demo_mode_manager.reset()
+
+
+@pytest.mark.asyncio
+async def test_live_and_replay_sse_schema_synchronization(
+    client: AsyncClient, client_session: AsyncSession
+):
+    """Confirm both live and replay events parse against the exact same consumer schema without error."""
+    from typing import Any
+
+    def validate_sse_event_schema(evt: dict[str, Any]) -> None:
+        event_name = evt.get("event") or evt.get("type")
+        assert event_name, f"Event missing event/type: {evt}"
+
+        if event_name == "close_run_state_change":
+            assert "new_status" in evt, f"close_run_state_change missing new_status: {evt}"
+        elif event_name == "close_task_state_change":
+            assert "task_type" in evt, f"close_task_state_change missing task_type: {evt}"
+            assert "new_status" in evt, f"close_task_state_change missing new_status: {evt}"
+        elif event_name == "agent_run_started":
+            assert "agent_name" in evt, f"agent_run_started missing agent_name: {evt}"
+        elif event_name == "agent_step":
+            assert "step_number" in evt, f"agent_step missing step_number: {evt}"
+            assert "step_type" in evt, f"agent_step missing step_type: {evt}"
+        elif event_name == "completed":
+            assert "status" in evt or "close_run_id" in evt, f"completed missing status: {evt}"
+        elif event_name in (
+            "connected",
+            "verification_complete",
+            "action_executed",
+            "agent_finding",
+            "reconciliation_completed",
+        ):
+            pass
+        else:
+            pytest.fail(f"Unrecognized event shape encountered: {event_name} -> {evt}")
+
+    # 1. Validate all golden replay traces
+    from app.demo.trace_recorder import get_golden_trace_definitions
+
+    for trace_def in get_golden_trace_definitions():
+        for evt in trace_def["events"]:
+            validate_sse_event_schema(evt)
+
+    # 2. Validate live state machine emitted events
+    from app.audit.service import AuditService
+    from app.close_workflow.state_machine import CloseWorkflowStateMachine
+
+    comp_resp = await client.post(
+        "/api/companies",
+        json={"name": "SchemaSync Corp", "base_currency": "USD"},
+    )
+    comp_id = uuid.UUID(comp_resp.json()["id"])
+    audit_svc = AuditService(client_session, company_id=comp_id)
+    sm = CloseWorkflowStateMachine(client_session, company_id=comp_id, audit_service=audit_svc)
+
+    from datetime import date
+
+    cr = CloseRun(
+        company_id=comp_id,
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        status=CloseRunStatus.CREATED,
+        version=1,
+    )
+    client_session.add(cr)
+    await client_session.flush()
+
+    # Capture live published events
+    from app.streaming.bus import agent_event_bus
+
+    captured_live_events: list[dict[str, Any]] = []
+
+    async with agent_event_bus.subscribe(cr.id) as queue:
+        # Trigger live transitions
+        await sm.transition_close_run(cr.id, CloseRunStatus.INGESTING, actor="test_runner")
+
+        task = CloseTask(
+            close_run_id=cr.id,
+            task_type=CloseTaskType.BANK_RECONCILIATION,
+            status=CloseTaskStatus.PENDING,
+        )
+        client_session.add(task)
+        await client_session.flush()
+
+        await sm.transition_task(task.id, CloseTaskStatus.IN_PROGRESS, actor="test_runner")
+        await sm.transition_task(task.id, CloseTaskStatus.COMPLETED, actor="test_runner", summary="Done")
+
+        # Collect from bus
+        while not queue.empty():
+            captured_live_events.append(await queue.get())
+
+    assert len(captured_live_events) >= 3
+    for live_evt in captured_live_events:
+        validate_sse_event_schema(live_evt)

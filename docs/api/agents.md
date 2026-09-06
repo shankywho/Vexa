@@ -1,6 +1,6 @@
 # Agent Runs API Reference
 
-Endpoints for inspecting autonomous agent runs and granular execution step telemetry. Router: [`backend/app/api/routes/agent_runs.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/api/routes/agent_runs.py).
+Endpoints for inspecting autonomous agent runs and granular execution step telemetry. Router: [`backend/app/api/routes/agent_runs.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/agent_runs.py).
 
 ---
 
@@ -9,7 +9,7 @@ Endpoints for inspecting autonomous agent runs and granular execution step telem
 ### 1. Get Agent Run
 `GET /api/agent-runs/{id}`
 * **Description:** Retrieves metadata, duration, model, prompt version, and status for a specific agent run.
-* **Response:** [`AgentRunRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/domain/schemas.py).
+* **Response:** [`AgentRunRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
 
 ### 2. Get Agent Steps
 `GET /api/agent-runs/{id}/steps`

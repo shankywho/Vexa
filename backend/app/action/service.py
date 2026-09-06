@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,15 +73,54 @@ class ActionService:
         exception_id: uuid.UUID,
         actor: str = "controller",
         notes: str | None = None,
+        materiality_threshold: Decimal | None = None,
     ) -> ActionResult:
         """Human approver approves an exception and executes staged actions (spec section 17)."""
         exc = await self.exc_repo.get_by_id(exception_id)
         if not exc:
             raise ValueError(f"Exception {exception_id} not found for company {self.company_id}")
 
+        staged_actions = await self.action_repo.list_staged(exception_id)
+
+        # Segregation-of-duties check (spec section 17 / FIX 2):
+        # If financial impact exceeds the materiality threshold, the approving actor
+        # cannot be the same actor who prepared/staged the action.
+        effective_threshold = (
+            materiality_threshold if materiality_threshold is not None else Decimal("50000.00")
+        )
+        is_material = exc.financial_impact is None or exc.financial_impact > effective_threshold
+
+        if is_material:
+            for act in staged_actions:
+                if act.actor and act.actor.strip().lower() == actor.strip().lower():
+                    reason_msg = (
+                        f"Segregation-of-duties violation: Actor '{actor}' prepared "
+                        f"staged action {act.id} and cannot approve their own "
+                        f"adjustment. Independent review required."
+                    )
+                    await self.audit_service.record_event(
+                        event_type=AuditEventType.EXCEPTION_DECISION,
+                        actor=actor,
+                        entity_type="exception",
+                        entity_id=exception_id,
+                        decision="SOD_VIOLATION",
+                        reason=reason_msg,
+                        financial_impact=exc.financial_impact,
+                        currency=exc.currency,
+                        payload={
+                            "decision": "SOD_VIOLATION",
+                            "attempted_by": actor,
+                            "preparer": act.actor,
+                            "action_id": str(act.id),
+                            "financial_impact": str(exc.financial_impact)
+                            if exc.financial_impact is not None
+                            else None,
+                        },
+                    )
+                    raise ValueError(reason_msg)
+
         now = utcnow()
         # Mark staged actions as EXECUTED
-        staged_actions = await self.action_repo.list_staged(exception_id)
         for act in staged_actions:
             act.status = "EXECUTED"
             act.executed_at = now

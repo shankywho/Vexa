@@ -36,6 +36,7 @@ class ReconciliationType(StrEnum):
     VENDOR_SURGE = "VENDOR_SURGE"
     VENDOR_BANK_CHANGE = "VENDOR_BANK_CHANGE"
     DATA_INGESTION_GAP = "DATA_INGESTION_GAP"
+    BANK_DUPLICATE = "BANK_DUPLICATE"
 
 
 class MatchedRecordReference(BaseModel):

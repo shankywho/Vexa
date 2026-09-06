@@ -7,8 +7,10 @@ Explainable structured outputs with explicit tolerance tracking.
 
 from __future__ import annotations
 
+import math
 import re
 import uuid
+from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
@@ -608,12 +610,117 @@ async def match_payments_to_invoice(
 
 
 async def match_bank_tx_to_payments(
-    bank_tx: BankTransaction,
-    payments: list[Payment],
+    bank_tx: BankTransaction | Sequence[BankTransaction],
+    payments: list[Payment] | Sequence[Payment],
     fx_service: FxService | None,
     config: ReconciliationConfig,
-) -> ReconciliationItemResult:
-    """Reconcile a bank transaction against payments (fees, timing lag, anomalies)."""
+    account_transactions: Sequence[BankTransaction] | None = None,
+    known_counterparties: set[str] | None = None,
+    is_duplicate: bool = False,
+) -> ReconciliationItemResult | list[ReconciliationItemResult]:
+    """Reconcile bank transaction(s) against payments (fees, timing lag, duplicates, anomalies).
+
+    Spec Section 8 & FIX 4:
+    Before running 1:1 payment matching, group bank transactions by
+    (bank_account_id, amount, transaction_date, direction, reference).
+    If any group has count > 1, flag the extras as a new BANK_DUPLICATE exception
+    instead of letting the second occurrence fall through as an unmatched/MISSING exception.
+    """
+    # Support batch invocation: group and match all transactions
+    if isinstance(bank_tx, (list, tuple, Sequence)) and not isinstance(bank_tx, BankTransaction):
+        groups: dict[tuple, list[BankTransaction]] = defaultdict(list)
+        for t in bank_tx:
+            k = (t.bank_account_id, t.amount, t.transaction_date, t.direction, t.reference)
+            groups[k].append(t)
+
+        batch_results: list[ReconciliationItemResult] = []
+        for t in bank_tx:
+            k = (t.bank_account_id, t.amount, t.transaction_date, t.direction, t.reference)
+            g = groups[k]
+            is_dup = len(g) > 1 and (
+                (t.id is not None and g[0].id is not None and t.id != g[0].id)
+                or (t is not g[0])
+            )
+            item_res = await match_bank_tx_to_payments(
+                bank_tx=t,
+                payments=payments,
+                fx_service=fx_service,
+                config=config,
+                account_transactions=bank_tx,
+                known_counterparties=known_counterparties,
+                is_duplicate=is_dup,
+            )
+            batch_results.append(item_res)
+        return batch_results
+
+    # FIX 4: Bank-side duplicate transaction detection
+    tx_group: list[BankTransaction] = []
+    if account_transactions:
+        key = (
+            bank_tx.bank_account_id,
+            bank_tx.amount,
+            bank_tx.transaction_date,
+            bank_tx.direction,
+            bank_tx.reference,
+        )
+        tx_group = [
+            t
+            for t in account_transactions
+            if (
+                t.bank_account_id,
+                t.amount,
+                t.transaction_date,
+                t.direction,
+                t.reference,
+            )
+            == key
+        ]
+
+    first_occurrence = tx_group[0] if tx_group else None
+    is_extra = is_duplicate or (
+        len(tx_group) > 1
+        and (
+            (bank_tx.id is not None and first_occurrence is not None and first_occurrence.id is not None and bank_tx.id != first_occurrence.id)
+            or (bank_tx is not first_occurrence)
+        )
+    )
+
+    if is_extra:
+        dup_ref = (
+            first_occurrence.reference
+            if first_occurrence and first_occurrence.reference
+            else str(first_occurrence.id)
+            if first_occurrence and first_occurrence.id
+            else "primary transaction"
+        )
+        return ReconciliationItemResult(
+            company_id=bank_tx.company_id,
+            reconciliation_type=ReconciliationType.BANK_DUPLICATE,
+            status=ReconciliationStatus.MISMATCH,
+            confidence=Decimal("1.0000"),
+            financial_impact=bank_tx.amount,
+            source_record_type="BANK_TRANSACTION",
+            source_record_id=bank_tx.id,
+            source_record_number=bank_tx.reference,
+            amounts={
+                "amount": bank_tx.amount,
+                "duplicate_amount": bank_tx.amount,
+            },
+            currencies={"currency": bank_tx.currency},
+            differences={
+                "subtype": "BANK_DUPLICATE",
+                "duplicate_of": str(first_occurrence.id) if first_occurrence and first_occurrence.id else None,
+                "duplicate_count": len(tx_group) if tx_group else 2,
+            },
+            evidence_ids=[first_occurrence.id] if first_occurrence and first_occurrence.id else [],
+            deterministic_reason=(
+                f"Bank Duplicate Transaction: Bank {bank_tx.direction.value} of {bank_tx.amount} "
+                f"{bank_tx.currency} (Ref: {bank_tx.reference}, Date: {bank_tx.transaction_date}) "
+                f"is a duplicate occurrence of transaction {dup_ref}."
+            ),
+            exception_type=ExceptionType.BANK_DUPLICATE,
+        )
+
     # 1. Match by reference
     matched_pmt: Payment | None = None
     for p in payments:
@@ -702,26 +809,119 @@ async def match_bank_tx_to_payments(
             ),
         )
 
-    # Check if this is an unidentified high-value cash anomaly
-    if bank_tx.amount >= config.high_value_threshold:
-        return ReconciliationItemResult(
-            company_id=bank_tx.company_id,
-            reconciliation_type=ReconciliationType.CASH_ANOMALY,
-            status=ReconciliationStatus.MISMATCH,
-            confidence=Decimal("1.0000"),
-            financial_impact=bank_tx.amount,
-            source_record_type="BANK_TRANSACTION",
-            source_record_id=bank_tx.id,
-            source_record_number=bank_tx.reference,
-            amounts={"amount": bank_tx.amount},
-            currencies={"currency": bank_tx.currency},
-            deterministic_reason=(
+    # Check if this is an unidentified cash anomaly
+    has_gl = bank_tx.journal_entry_id is not None
+    c_name = (bank_tx.counterparty or "").strip().lower()
+    has_known_counterparty = False
+    if known_counterparties is not None:
+        has_known_counterparty = c_name in known_counterparties
+    elif c_name and not any(
+        unid in c_name for unid in ("unknown", "unidentified", "escrow", "unrecognized")
+    ):
+        has_known_counterparty = True
+
+    if not has_known_counterparty and not has_gl:
+        is_statistical_outlier = False
+        mean = Decimal("0.00")
+        stddev = Decimal("0.00")
+        stat_detail = ""
+        if account_transactions:
+            baseline_txs = [
+                t
+                for t in account_transactions
+                if (
+                    t.id != bank_tx.id
+                    if (t.id is not None and bank_tx.id is not None)
+                    else (t is not bank_tx and (not bank_tx.reference or t.reference != bank_tx.reference))
+                )
+                and t.amount > Decimal("0.00")
+            ]
+            amounts = [t.amount for t in baseline_txs]
+            n = len(amounts)
+            if n >= 3:
+                if n < 15:
+                    sorted_amounts = sorted(amounts)
+                    if n % 2 == 1:
+                        median = sorted_amounts[n // 2]
+                    else:
+                        median = (sorted_amounts[n // 2 - 1] + sorted_amounts[n // 2]) / Decimal("2")
+
+                    abs_devs = sorted([abs(x - median) for x in sorted_amounts])
+                    if n % 2 == 1:
+                        mad = abs_devs[n // 2]
+                    else:
+                        mad = (abs_devs[n // 2 - 1] + abs_devs[n // 2]) / Decimal("2")
+
+                    if mad > Decimal("0.00"):
+                        modified_z = (Decimal("0.6745") * abs(bank_tx.amount - median)) / mad
+                        if modified_z > Decimal("3.5"):
+                            is_statistical_outlier = True
+                            stat_detail = (
+                                f" Statistical outlier: MAD modified z-score ({modified_z:.2f}) > 3.5 "
+                                f"(baseline median: {median:.2f}, MAD: {mad:.2f}, N={n})."
+                            )
+                    else:
+                        mean_ad = sum(abs_devs, Decimal("0.00")) / Decimal(str(n))
+                        if mean_ad > Decimal("0.00"):
+                            modified_z = (Decimal("0.6745") * abs(bank_tx.amount - median)) / (
+                                Decimal("1.2533") * mean_ad
+                            )
+                            if modified_z > Decimal("3.5"):
+                                is_statistical_outlier = True
+                                stat_detail = (
+                                    f" Statistical outlier: MeanAD modified z-score ({modified_z:.2f}) > 3.5 "
+                                    f"(baseline median: {median:.2f}, N={n})."
+                                )
+                        elif median > Decimal("0.00") and abs(bank_tx.amount - median) >= median:
+                            is_statistical_outlier = True
+                            stat_detail = (
+                                f" Statistical outlier: amount differs materially from identical baseline "
+                                f"(median: {median:.2f}, N={n})."
+                            )
+                else:
+                    mean = sum(amounts, Decimal("0.00")) / Decimal(str(n))
+                    variance = sum(((x - mean) ** 2 for x in amounts), Decimal("0.00")) / Decimal(str(n))
+                    stddev = Decimal(str(math.sqrt(float(variance))))
+                    if stddev > Decimal("0.00") and abs(bank_tx.amount - mean) > Decimal("3.0") * stddev:
+                        is_statistical_outlier = True
+                        stat_detail = (
+                            f" Statistical outlier: amount is >3 stddev from account rolling mean "
+                            f"(mean: {mean:.2f}, stddev: {stddev:.2f}, N={n})."
+                        )
+
+        materiality = getattr(
+            config,
+            "materiality_threshold",
+            getattr(config, "high_value_threshold", Decimal("100000.00")),
+        )
+        is_material = bank_tx.amount >= materiality
+
+        if is_statistical_outlier or is_material:
+            reason = (
                 f"Cash Anomaly: Unidentified bank {bank_tx.direction.value} of {bank_tx.amount} "
                 f"{bank_tx.currency} (Ref: {bank_tx.reference}) "
-                "has no supporting payment or customer record."
-            ),
-            exception_type=ExceptionType.CASH_ANOMALY,
-        )
+                "has no supporting payment, GL entry, or verified counterparty."
+            )
+            if is_statistical_outlier:
+                reason += stat_detail
+            elif is_material:
+                reason += f" Amount exceeds policy materiality threshold ({materiality})."
+
+            return ReconciliationItemResult(
+                company_id=bank_tx.company_id,
+                reconciliation_type=ReconciliationType.CASH_ANOMALY,
+                status=ReconciliationStatus.MISMATCH,
+                confidence=Decimal("1.0000"),
+                financial_impact=bank_tx.amount,
+                source_record_type="BANK_TRANSACTION",
+                source_record_id=bank_tx.id,
+                source_record_number=bank_tx.reference,
+                amounts={"amount": bank_tx.amount, "anomaly_amount": bank_tx.amount},
+                currencies={"currency": bank_tx.currency},
+                differences={"unexplained_balance": bank_tx.amount},
+                deterministic_reason=reason,
+                exception_type=ExceptionType.CASH_ANOMALY,
+            )
 
     return ReconciliationItemResult(
         company_id=bank_tx.company_id,
@@ -936,6 +1136,99 @@ def review_accrual_entry(
             )
 
     return None
+
+
+def verify_accrual_reversals(
+    prior_entries: Sequence[JournalEntry],
+    current_entries: Sequence[JournalEntry],
+    config: ReconciliationConfig | None = None,
+) -> list[ReconciliationItemResult]:
+    """Verify that prior-period accruals have matching offsetting reversal entries in the current period.
+
+    Spec section 8 & FIX 3:
+    Loads prior-period journal entries flagged as accruals (is_accrual=True or description
+    containing "accrual" or reference starting with "je-accr"), and verifies a matching
+    offsetting entry (debit/credit flipped, same or similar amount) exists in the current period.
+
+    If no reversal is found, returns a ReconciliationItemResult with:
+    - exception_type: ExceptionType.ACCRUAL_ANOMALY
+    - deterministic_reason: "Missing Prior Period Accrual Reversal"
+    - evidence_ids: [entry.id]
+    - financial_impact: accrual amount
+    """
+    results: list[ReconciliationItemResult] = []
+    tol = getattr(config, "amount_abs_tolerance", Decimal("0.01")) if config else Decimal("0.01")
+
+    # Filter prior entries to those flagged as accruals
+    accrual_entries: list[JournalEntry] = []
+    for je in prior_entries:
+        is_accrual = (
+            getattr(je, "is_accrual", False)
+            or "accrual" in (je.description or "").lower()
+            or "accrual" in (je.source or "").lower()
+            or (je.reference or "").lower().startswith("je-accr")
+        )
+        if is_accrual:
+            accrual_entries.append(je)
+
+    # For each prior accrual entry, check if an offsetting reversal exists in current_entries
+    for acc in accrual_entries:
+        acc_amt = acc.total_debit or acc.total_credit
+        acc_lines = acc.lines or []
+
+        reversal_found = False
+        for cand in current_entries:
+            # 1. Check if flipped amounts match within tolerance:
+            # Accrual debits match reversal credits, and accrual credits match reversal debits
+            debit_matches = abs(cand.total_debit - acc.total_credit) <= tol
+            credit_matches = abs(cand.total_credit - acc.total_debit) <= tol
+            if not (debit_matches and credit_matches):
+                continue
+
+            # 2. If line-level details are present, check account consistency
+            if acc_lines and getattr(cand, "lines", None):
+                cand_by_acc: dict[uuid.UUID, tuple[Decimal, Decimal]] = defaultdict(
+                    lambda: (Decimal("0"), Decimal("0"))
+                )
+                for cl in cand.lines:
+                    d, c = cand_by_acc[cl.ledger_account_id]
+                    cand_by_acc[cl.ledger_account_id] = (d + cl.debit, c + cl.credit)
+
+                line_match = True
+                for al in acc_lines:
+                    cd, cc = cand_by_acc[al.ledger_account_id]
+                    if abs(cd - al.credit) > tol or abs(cc - al.debit) > tol:
+                        line_match = False
+                        break
+                if not line_match:
+                    continue
+
+            reversal_found = True
+            break
+
+        if not reversal_found:
+            results.append(
+                ReconciliationItemResult(
+                    company_id=acc.company_id,
+                    reconciliation_type=ReconciliationType.ACCRUAL_REVIEW,
+                    status=ReconciliationStatus.MISMATCH,
+                    confidence=Decimal("1.0000"),
+                    financial_impact=acc_amt,
+                    source_record_type="JOURNAL_ENTRY",
+                    source_record_id=acc.id,
+                    source_record_number=acc.reference,
+                    amounts={
+                        "accrued_amount": acc_amt,
+                        "reversal_amount": Decimal("0.00"),
+                        "variance": acc_amt,
+                    },
+                    evidence_ids=[acc.id],
+                    deterministic_reason="Missing Prior Period Accrual Reversal",
+                    exception_type=ExceptionType.ACCRUAL_ANOMALY,
+                )
+            )
+
+    return results
 
 
 def detect_vendor_bank_change_anomalies(

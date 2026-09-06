@@ -6,7 +6,7 @@ Vexa implements a multi-tier autonomy model that balances computational efficien
 
 ## 1. The 4 Autonomy Levels
 
-Defined in [`app.domain.enums.AutonomyLevel`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/domain/enums.py#L100):
+Defined in [`app.domain.enums.AutonomyLevel`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/enums.py#L100):
 
 ```
                                ┌─────────────────────────────┐

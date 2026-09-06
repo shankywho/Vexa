@@ -1,6 +1,6 @@
 # Exception Taxonomy
 
-Vexa classifies all financial variances into 16 canonical exception types defined in [`app.domain.enums.ExceptionType`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/domain/enums.py#L53).
+Vexa classifies all financial variances into 16 canonical exception types defined in [`app.domain.enums.ExceptionType`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/enums.py#L53).
 
 ---
 

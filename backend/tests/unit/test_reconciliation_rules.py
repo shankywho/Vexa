@@ -30,6 +30,7 @@ from app.reconciliation.rules import (
     match_invoice_to_receipts,
     match_payments_to_invoice,
     review_accrual_entry,
+    verify_accrual_reversals,
     verify_gl_mapping,
     verify_journal_entry_balance,
 )
@@ -432,3 +433,205 @@ def test_review_accrual_entry_anomaly():
     assert res.status == ReconciliationStatus.MISMATCH
     assert res.exception_type == ExceptionType.ACCRUAL_ANOMALY
     assert res.financial_impact == Decimal("190000.00")
+
+
+def test_verify_accrual_reversals_missing():
+    cid = uuid.uuid4()
+    exp_acc_id = uuid.uuid4()
+    liab_acc_id = uuid.uuid4()
+
+    prior_je = JournalEntry(
+        id=uuid.uuid4(),
+        company_id=cid,
+        reference="JE-ACCR-PRIOR-01",
+        description="Prior Period Legal Services Accrual",
+        entry_date=date(2026, 1, 31),
+    )
+    prior_je.lines = [
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=prior_je.id,
+            ledger_account_id=exp_acc_id,
+            debit=Decimal("45000.00"),
+            credit=Decimal("0.00"),
+        ),
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=prior_je.id,
+            ledger_account_id=liab_acc_id,
+            debit=Decimal("0.00"),
+            credit=Decimal("45000.00"),
+        ),
+    ]
+
+    # Current period has no reversal
+    current_entries: list[JournalEntry] = []
+
+    results = verify_accrual_reversals([prior_je], current_entries, ReconciliationConfig())
+    assert len(results) == 1
+    res = results[0]
+    assert res.status == ReconciliationStatus.MISMATCH
+    assert res.exception_type == ExceptionType.ACCRUAL_ANOMALY
+    assert res.deterministic_reason == "Missing Prior Period Accrual Reversal"
+    assert res.financial_impact == Decimal("45000.00")
+    assert res.evidence_ids == [prior_je.id]
+
+
+def test_verify_accrual_reversals_matching():
+    cid = uuid.uuid4()
+    exp_acc_id = uuid.uuid4()
+    liab_acc_id = uuid.uuid4()
+
+    prior_je = JournalEntry(
+        id=uuid.uuid4(),
+        company_id=cid,
+        reference="JE-ACCR-PRIOR-02",
+        description="Prior Period Bonus Accrual",
+        entry_date=date(2026, 1, 31),
+    )
+    prior_je.lines = [
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=prior_je.id,
+            ledger_account_id=exp_acc_id,
+            debit=Decimal("30000.00"),
+            credit=Decimal("0.00"),
+        ),
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=prior_je.id,
+            ledger_account_id=liab_acc_id,
+            debit=Decimal("0.00"),
+            credit=Decimal("30000.00"),
+        ),
+    ]
+
+    # Current period has proper reversing entry (debit/credit flipped on accounts)
+    curr_rev_je = JournalEntry(
+        id=uuid.uuid4(),
+        company_id=cid,
+        reference="JE-REV-02",
+        description="Reversal of Prior Period Bonus Accrual",
+        entry_date=date(2026, 2, 1),
+    )
+    curr_rev_je.lines = [
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=curr_rev_je.id,
+            ledger_account_id=liab_acc_id,
+            debit=Decimal("30000.00"),
+            credit=Decimal("0.00"),
+        ),
+        JournalEntryLine(
+            id=uuid.uuid4(),
+            journal_entry_id=curr_rev_je.id,
+            ledger_account_id=exp_acc_id,
+            debit=Decimal("0.00"),
+            credit=Decimal("30000.00"),
+        ),
+    ]
+
+    results = verify_accrual_reversals([prior_je], [curr_rev_je], ReconciliationConfig())
+    assert len(results) == 0
+
+
+async def test_bank_duplicate_transaction_detection():
+    """FIX 4: Bank-side duplicate transaction detection.
+
+    Before 1:1 payment matching, group bank transactions by
+    (bank_account_id, amount, transaction_date, direction, reference).
+    Extras must be flagged as ExceptionType.BANK_DUPLICATE instead of falling
+    through as unmatched/MISSING.
+    """
+    cid = uuid.uuid4()
+    ba_id = uuid.uuid4()
+    tx_date = date(2026, 2, 5)
+
+    bt_orig = BankTransaction(
+        id=uuid.uuid4(),
+        company_id=cid,
+        bank_account_id=ba_id,
+        amount=Decimal("15000.00"),
+        currency="USD",
+        direction=BankTransactionDirection.DEBIT,
+        transaction_date=tx_date,
+        reference="TXN-WIRE-DUP-01",
+    )
+    bt_duplicate = BankTransaction(
+        id=uuid.uuid4(),
+        company_id=cid,
+        bank_account_id=ba_id,
+        amount=Decimal("15000.00"),
+        currency="USD",
+        direction=BankTransactionDirection.DEBIT,
+        transaction_date=tx_date,
+        reference="TXN-WIRE-DUP-01",
+    )
+
+    pmt = Payment(
+        id=uuid.uuid4(),
+        company_id=cid,
+        bank_account_id=ba_id,
+        amount=Decimal("15000.00"),
+        currency="USD",
+        payment_date=tx_date,
+        beneficiary_reference="TXN-WIRE-DUP-01",
+        status=DocumentStatus.PAID,
+    )
+
+    account_txs = [bt_orig, bt_duplicate]
+
+    # First transaction matches the payment
+    res_orig = await match_bank_tx_to_payments(
+        bt_orig, [pmt], None, ReconciliationConfig(), account_transactions=account_txs
+    )
+    assert res_orig.status == ReconciliationStatus.MATCHED
+    assert res_orig.financial_impact == Decimal("0.00")
+
+    # Second transaction is detected as a bank duplicate exception
+    res_dup = await match_bank_tx_to_payments(
+        bt_duplicate, [pmt], None, ReconciliationConfig(), account_transactions=account_txs
+    )
+    assert res_dup.status == ReconciliationStatus.MISMATCH
+    assert res_dup.exception_type == ExceptionType.BANK_DUPLICATE
+    assert res_dup.financial_impact == Decimal("15000.00")
+    assert res_dup.differences.get("subtype") == "BANK_DUPLICATE"
+    assert "duplicate" in res_dup.deterministic_reason.lower()
+
+
+async def test_bank_duplicate_transaction_detection_batch():
+    """FIX 4: Batch invocation grouping and duplicate detection."""
+    cid = uuid.uuid4()
+    ba_id = uuid.uuid4()
+    tx_date = date(2026, 2, 8)
+
+    bt1 = BankTransaction(
+        id=uuid.uuid4(),
+        company_id=cid,
+        bank_account_id=ba_id,
+        amount=Decimal("5000.00"),
+        currency="USD",
+        direction=BankTransactionDirection.CREDIT,
+        transaction_date=tx_date,
+        reference="TXN-BATCH-DUP-01",
+    )
+    bt2 = BankTransaction(
+        id=uuid.uuid4(),
+        company_id=cid,
+        bank_account_id=ba_id,
+        amount=Decimal("5000.00"),
+        currency="USD",
+        direction=BankTransactionDirection.CREDIT,
+        transaction_date=tx_date,
+        reference="TXN-BATCH-DUP-01",
+    )
+
+    batch_res = await match_bank_tx_to_payments(
+        [bt1, bt2], [], None, ReconciliationConfig()
+    )
+    assert len(batch_res) == 2
+    # Second item in batch must be flagged as BANK_DUPLICATE
+    assert batch_res[1].exception_type == ExceptionType.BANK_DUPLICATE
+    assert batch_res[1].status == ReconciliationStatus.MISMATCH
+    assert batch_res[1].financial_impact == Decimal("5000.00")
+

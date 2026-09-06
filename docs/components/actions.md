@@ -6,7 +6,7 @@ The Actions subsystem executes permitted adjustments, stages proposals for Contr
 
 ## 1. Package Structure
 
-Located at [`backend/app/action/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/action/):
+Located at [`backend/app/action/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action/):
 
 ```
 app/action/
@@ -23,7 +23,7 @@ app/action/
 
 ## 2. Hard Invariant: Zero Autonomous Money Movement
 
-Vexa is strictly prohibited from disbursing funds or initiating transactions on external banking networks. Permitted action types in [`app.action.types.ActionType`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/action/types.py#L9) are strictly bounded to internal adjustments:
+Vexa is strictly prohibited from disbursing funds or initiating transactions on external banking networks. Permitted action types in [`app.action.types.ActionType`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action/types.py#L9) are strictly bounded to internal adjustments:
 * `MARK_EXCEPTION_RESOLVED`: Closes exception after verified match or compensating entry.
 * `STAGE_JOURNAL_ENTRY`: Stages draft adjusting entry in `GL_DRAFT` state for human review.
 * `DRAFT_VENDOR_EMAIL`: Stages inquiry text for accounts payable clerk review.
@@ -45,7 +45,7 @@ Vexa is strictly prohibited from disbursing funds or initiating transactions on 
 
 If an action was executed or approved erroneously, an authorized reviewer can reverse it via `POST /api/exceptions/{id}/reverse`.
 
-The [`ReversalEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/action/reversal.py) guarantees:
+The [`ReversalEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action/reversal.py) guarantees:
 1. **Zero Row Deletion:** Historical rows are never deleted.
 2. **Reversal Record:** Inserts a new `ReversalAction` row linking to `ExceptionAction.id` with timestamp, reviewer ID, and business rationale.
 3. **Exception Reopening:** The exception status transitions back to `REOPENED`, and `resolved_at` is cleared.
@@ -56,7 +56,7 @@ The [`ReversalEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/back
 
 ## 5. Human Correction & Policy Tuning Loop
 
-The [`HumanCorrectionService`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/action/correction_service.py) records every human intervention where a human reviewer's final decision differs from the system recommendation.
+The [`HumanCorrectionService`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action/correction_service.py) records every human intervention where a human reviewer's final decision differs from the system recommendation.
 
 ### Override Statistics
 Metrics are aggregated across three views via `GET /api/exceptions/corrections/stats`:

@@ -86,6 +86,7 @@ class InvestigationEvaluator:
                 "ACCRUAL_ANOMALY": ExceptionType.ACCRUAL_ANOMALY,
                 "AR_MISMATCH": ExceptionType.AR_MISMATCH,
                 "CASH_ANOMALY": ExceptionType.CASH_ANOMALY,
+                "BANK_DUPLICATE": ExceptionType.BANK_DUPLICATE,
             }
             exc_type = exc_type_map.get(s_type, ExceptionType.OTHER)
 

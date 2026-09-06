@@ -142,6 +142,11 @@ class IndependentCalculationVerifier:
                     dossier.journal_entries[0], "total_debit", expected_impact
                 )
 
+        # Bank duplicate transaction
+        elif dossier.exception_type == ExceptionType.BANK_DUPLICATE:
+            if dossier.bank_transactions:
+                recalculated_impact = dossier.bank_transactions[0].amount
+
         variance_diff = abs(recalculated_impact - expected_impact)
         is_valid = len(errors) == 0 and variance_diff <= Decimal("0.01")
         return (is_valid, recalculated_impact, variance_diff, errors)
@@ -165,6 +170,7 @@ class EvidenceCompletenessVerifier:
         ExceptionType.UNUSUAL_VENDOR_ACTIVITY: ["journal_entries"],
         ExceptionType.VENDOR_BANK_CHANGE_ANOMALY: ["payments"],
         ExceptionType.DATA_INGESTION_GAP: [],
+        ExceptionType.BANK_DUPLICATE: ["bank_transactions"],
     }
 
     def verify_evidence(

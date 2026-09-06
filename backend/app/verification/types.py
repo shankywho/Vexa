@@ -55,4 +55,5 @@ class VerificationResult(BaseModel):
     calculation_valid: bool = True
     recalculated_impact: Decimal | None = None
     variance_diff: Decimal = Field(default=Decimal("0.00"))
+    independence_compromised: bool = Field(default=False)
     notes: str = ""

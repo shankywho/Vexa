@@ -38,17 +38,21 @@ class TraceRecorder:
 
         events: list[dict[str, Any]] = []
 
-        # 1. Close run start event
+        # 1. Close run state change event (canonical schema matching state machine)
         events.append(
             {
                 "offset_ms": 0,
-                "event": "close_run_started",
+                "event": "close_run_state_change",
                 "close_run_id": str(close_run_id),
-                "status": close_run.status.value,
+                "previous_status": None,
+                "new_status": close_run.status.value,
+                "version": close_run.version,
+                "actor": "system",
+                "reason": f"Close run initialized in state {close_run.status.value}",
             }
         )
 
-        # 2. Tasks
+        # 2. Tasks (canonical schema matching state machine)
         task_stmt = (
             select(CloseTask)
             .where(CloseTask.close_run_id == close_run_id)
@@ -59,11 +63,15 @@ class TraceRecorder:
             events.append(
                 {
                     "offset_ms": 100 * (idx + 1),
-                    "event": "task_update",
+                    "event": "close_task_state_change",
+                    "close_run_id": str(close_run_id),
                     "task_id": str(t.id),
                     "task_type": t.task_type.value,
-                    "status": t.status.value,
+                    "previous_status": "IN_PROGRESS" if t.status.value == "COMPLETED" else None,
+                    "new_status": t.status.value,
                     "summary": t.result_summary,
+                    "metrics": {},
+                    "error_message": None,
                 }
             )
 
@@ -158,15 +166,23 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                 {"offset_ms": 0, "event": "connected", "status": "INVESTIGATING"},
                 {
                     "offset_ms": 100,
-                    "event": "task_update",
+                    "event": "close_task_state_change",
                     "task_type": "BANK_RECONCILIATION",
-                    "status": "COMPLETED",
+                    "previous_status": "IN_PROGRESS",
+                    "new_status": "COMPLETED",
+                    "summary": "Bank reconciliation completed",
+                    "metrics": {},
+                    "error_message": None,
                 },
                 {
                     "offset_ms": 200,
-                    "event": "task_update",
+                    "event": "close_task_state_change",
                     "task_type": "AP_RECONCILIATION",
-                    "status": "COMPLETED",
+                    "previous_status": "IN_PROGRESS",
+                    "new_status": "COMPLETED",
+                    "summary": "AP reconciliation completed",
+                    "metrics": {},
+                    "error_message": None,
                 },
                 {
                     "offset_ms": 300,
@@ -258,9 +274,13 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                 {"offset_ms": 0, "event": "connected", "status": "INVESTIGATING"},
                 {
                     "offset_ms": 100,
-                    "event": "task_update",
+                    "event": "close_task_state_change",
                     "task_type": "INVOICE_VALIDATION",
-                    "status": "COMPLETED",
+                    "previous_status": "IN_PROGRESS",
+                    "new_status": "COMPLETED",
+                    "summary": "Invoice validation completed",
+                    "metrics": {},
+                    "error_message": None,
                 },
                 {
                     "offset_ms": 250,
@@ -330,15 +350,23 @@ def get_golden_trace_definitions() -> list[dict[str, Any]]:
                 {"offset_ms": 0, "event": "connected", "status": "RECONCILING"},
                 {
                     "offset_ms": 100,
-                    "event": "task_update",
+                    "event": "close_task_state_change",
                     "task_type": "BANK_RECONCILIATION",
-                    "status": "COMPLETED",
+                    "previous_status": "IN_PROGRESS",
+                    "new_status": "COMPLETED",
+                    "summary": "Bank reconciliation completed",
+                    "metrics": {},
+                    "error_message": None,
                 },
                 {
                     "offset_ms": 200,
-                    "event": "task_update",
+                    "event": "close_task_state_change",
                     "task_type": "PAYMENT_RECONCILIATION",
-                    "status": "COMPLETED",
+                    "previous_status": "IN_PROGRESS",
+                    "new_status": "COMPLETED",
+                    "summary": "Payment reconciliation completed",
+                    "metrics": {},
+                    "error_message": None,
                 },
                 {
                     "offset_ms": 300,

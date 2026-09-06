@@ -6,7 +6,7 @@ The Database component manages relational persistence in PostgreSQL. In Vexa, re
 
 ## 1. Package Structure
 
-Located at [`backend/app/db/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/db/):
+Located at [`backend/app/db/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/db/):
 
 ```
 app/db/
@@ -97,7 +97,7 @@ erDiagram
 
 ## 4. Multi-Tenant Repository Boundary
 
-All database queries are managed through [`backend/app/db/repository.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-7/backend/app/db/repository.py). The repository layer enforces `company_id` scoping on every SQL statement:
+All database queries are managed through [`backend/app/db/repository.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/db/repository.py). The repository layer enforces `company_id` scoping on every SQL statement:
 
 ```python
 class BaseCompanyRepository:
