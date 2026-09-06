@@ -56,11 +56,16 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # Application
     app_name: str = "ClosePilot Backend"
-    environment: str = Field(default="development", description="development | test | production")
+    environment: str = Field(
+        default="development",
+        validation_alias=AliasChoices("VEXA_ENVIRONMENT", "ENVIRONMENT", "ENV"),
+        description="development | test | production",
+    )
     debug: bool = False
     api_prefix: str = "/api"
 
@@ -99,6 +104,10 @@ class Settings(BaseSettings):
             url = url.replace("sslmode=require", "ssl=require")
         elif "sslmode=prefer" in url:
             url = url.replace("sslmode=prefer", "ssl=prefer")
+        elif any(cloud_host in url for cloud_host in [".render.com", ".neon.tech", ".supabase.co"]):
+            if "ssl=" not in url and "sslmode=" not in url:
+                delimiter = "&" if "?" in url else "?"
+                url = f"{url}{delimiter}ssl=require"
         return url
 
     # Auth (foundation only - real auth lands in a later phase)

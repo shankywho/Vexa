@@ -86,6 +86,7 @@ class HealthRead(BaseModel):
     environment: str
     database: str
     version: str
+    error: str | None = None
 
 
 class FxRateRead(BaseModel):
