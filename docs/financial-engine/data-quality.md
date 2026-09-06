@@ -6,7 +6,7 @@ Before executing accounting reconciliations, Vexa validates the structural compl
 
 ## 1. Data Quality Checks
 
-Implemented in [`detect_data_ingestion_gaps`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/rules.py#L320):
+Implemented in [`detect_data_ingestion_gaps`](../../backend/app/reconciliation/rules.py#L320):
 
 ### 1.1 Bank Feed Continuity Check
 * **Rule:** Treasury feeds must contain unbroken date coverage for the close period.

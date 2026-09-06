@@ -8,7 +8,7 @@ The CFO Investigation Agent investigates exceptions discovered during reconcilia
 
 * **Primary Function:** Reason over financial relationships, trace anomalies to root causes, cite verified records, and formulate structured findings.
 * **Bounded Input:** Bounded `EvidenceDossier` containing graph neighbors and whitelisted IDs.
-* **Output Contract:** Validated [`InvestigationFinding`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/types.py#L76).
+* **Output Contract:** Validated [`InvestigationFinding`](../../backend/app/investigation/types.py#L76).
 * **Strict Authority Boundaries:**
   - Cannot query arbitrary SQL tables.
   - Cannot calculate official ledger balances.
@@ -48,5 +48,5 @@ Step 5: Confidence Calibration & Audit Trail Emission
 
 ## 4. Relevant Tests
 
-* Unit Tests: [`tests/unit/test_investigation_calibration.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/unit/test_investigation_calibration.py), [`tests/unit/test_investigation_citation_validator.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/unit/test_investigation_citation_validator.py), [`tests/unit/test_investigation_timeout_and_fallback.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/unit/test_investigation_timeout_and_fallback.py).
-* Integration Tests: [`tests/integration/test_investigation_agent_flow.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/integration/test_investigation_agent_flow.py), [`tests/integration/test_investigation_ground_truth.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/tests/integration/test_investigation_ground_truth.py).
+* Unit Tests: [`tests/unit/test_investigation_calibration.py`](../../backend/tests/unit/test_investigation_calibration.py), [`tests/unit/test_investigation_citation_validator.py`](../../backend/tests/unit/test_investigation_citation_validator.py), [`tests/unit/test_investigation_timeout_and_fallback.py`](../../backend/tests/unit/test_investigation_timeout_and_fallback.py).
+* Integration Tests: [`tests/integration/test_investigation_agent_flow.py`](../../backend/tests/integration/test_investigation_agent_flow.py), [`tests/integration/test_investigation_ground_truth.py`](../../backend/tests/integration/test_investigation_ground_truth.py).

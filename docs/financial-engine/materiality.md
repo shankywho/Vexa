@@ -6,7 +6,7 @@ In financial auditing, materiality governs whether an omission or misstatement c
 
 ## 1. Materiality Dimensions
 
-Vexa evaluates three concurrent materiality dimensions in [`PolicyGateVerifier`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/engine.py#L290):
+Vexa evaluates three concurrent materiality dimensions in [`PolicyGateVerifier`](../../backend/app/verification/engine.py#L290):
 
 ```
                                   Materiality Evaluation

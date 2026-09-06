@@ -111,12 +111,12 @@ Vexa enforces tenant boundaries at every software layer:
 
 ## 5. Architectural Directory Map
 
-* [`app/close_workflow/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow) — Workflow DAG, state machine, task executors, and close readiness.
-* [`app/reconciliation/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation) — 10-pass deterministic matching engine, rules, and tolerances.
-* [`app/evidence_graph/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph) — Directed financial knowledge graph and relevance ranker.
-* [`app/investigation/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation) — Investigation agent, citation validation, and confidence calibration.
-* [`app/verification/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification) — 3-gate independent verification engine and policy evaluator.
-* [`app/action/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action) — Action execution, 1-click reversals, and human correction metrics.
-* [`app/audit/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/audit) — Immutable audit logging and SOX control mapping.
-* [`app/streaming/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/streaming) — Real-time Server-Sent Events bus.
-* [`app/demo/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/demo) — Live/Replay mode controller and trace player.
+* [`app/close_workflow/`](../../backend/app/close_workflow) — Workflow DAG, state machine, task executors, and close readiness.
+* [`app/reconciliation/`](../../backend/app/reconciliation) — 10-pass deterministic matching engine, rules, and tolerances.
+* [`app/evidence_graph/`](../../backend/app/evidence_graph) — Directed financial knowledge graph and relevance ranker.
+* [`app/investigation/`](../../backend/app/investigation) — Investigation agent, citation validation, and confidence calibration.
+* [`app/verification/`](../../backend/app/verification) — 3-gate independent verification engine and policy evaluator.
+* [`app/action/`](../../backend/app/action) — Action execution, 1-click reversals, and human correction metrics.
+* [`app/audit/`](../../backend/app/audit) — Immutable audit logging and SOX control mapping.
+* [`app/streaming/`](../../backend/app/streaming) — Real-time Server-Sent Events bus.
+* [`app/demo/`](../../backend/app/demo) — Live/Replay mode controller and trace player.

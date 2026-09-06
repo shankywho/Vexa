@@ -6,7 +6,7 @@ Vexa wraps all machine learning interactions in strict safety guardrails to ensu
 
 ## 1. Provider Abstraction & Fallback Architecture
 
-The [`LLMProvider`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/llm_provider.py) interface isolates model providers from the rest of the application:
+The [`LLMProvider`](../../backend/app/investigation/llm_provider.py) interface isolates model providers from the rest of the application:
 * **Supported Providers:**
   - `deterministic` (Default local rules provider; zero network dependency)
   - `openai` (`gpt-4o` with JSON schema enforcement)
@@ -15,13 +15,13 @@ The [`LLMProvider`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend
   - `custom` (Internal fine-tuned finance endpoints)
 
 ### Deterministic Fallback Invariant
-If an external LLM request encounters a network error, HTTP 5xx error, or exceeds the 30.0-second timeout, the system automatically falls back to [`DeterministicInvestigationProvider`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/llm_provider.py#L48). This guarantees that a close run will **never** freeze or fail due to external API outages.
+If an external LLM request encounters a network error, HTTP 5xx error, or exceeds the 30.0-second timeout, the system automatically falls back to [`DeterministicInvestigationProvider`](../../backend/app/investigation/llm_provider.py#L48). This guarantees that a close run will **never** freeze or fail due to external API outages.
 
 ---
 
 ## 2. Citation Validation (Zero Hallucinations)
 
-The [`CitationValidator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/citation_validator.py) checks every identifier cited in agent reasoning against the bounded dossier whitelist:
+The [`CitationValidator`](../../backend/app/investigation/citation_validator.py) checks every identifier cited in agent reasoning against the bounded dossier whitelist:
 * Every fact must cite a real `record_id` or `evidence_id`.
 * Any citation not present in `valid_record_ids` is flagged as a hallucination.
 * Findings with hallucinated citations are disqualified from autonomous execution and penalized by 0.50 points in confidence calibration.

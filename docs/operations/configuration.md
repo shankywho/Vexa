@@ -1,6 +1,6 @@
 # Configuration Reference
 
-The Vexa backend loads configuration via `pydantic-settings` from environment variables prefixed with `VEXA_` or from a local `.env` file. Settings class: [`backend/app/config.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/config.py).
+The Vexa backend loads configuration via `pydantic-settings` from environment variables prefixed with `VEXA_` or from a local `.env` file. Settings class: [`backend/app/config.py`](../../backend/app/config.py).
 
 ---
 

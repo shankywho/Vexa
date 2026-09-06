@@ -1,8 +1,8 @@
 """Domain enums.
 
-Single source of truth for the vocabulary defined in
-``CLOSEPILOT_BACKEND_CONTEXT_V2.md`` (close-run states, exception types,
-autonomy levels, roles, close tasks, reconciliation statuses, etc.).
+Single source of truth for the domain vocabulary (close-run states,
+exception types, autonomy levels, roles, close tasks, reconciliation
+statuses, etc.).
 """
 
 from __future__ import annotations

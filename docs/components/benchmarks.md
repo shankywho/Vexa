@@ -6,7 +6,7 @@ The Benchmarks subsystem evaluates Vexa against a unified suite of 35 ground-tru
 
 ## 1. Package Structure
 
-Located at [`backend/app/benchmarks/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/benchmarks/):
+Located at [`backend/app/benchmarks/`](../../backend/app/benchmarks/):
 
 ```
 app/benchmarks/
@@ -20,7 +20,7 @@ app/benchmarks/
 
 ## 2. Benchmark Design & Ground Truth
 
-The benchmark dataset resides in [`backend/app/data/ground_truth.json`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/data/ground_truth.json). It contains 35 realistic accounting scenarios across 14 categories:
+The benchmark dataset resides in [`backend/app/data/ground_truth.json`](../../backend/app/data/ground_truth.json). It contains 35 realistic accounting scenarios across 14 categories:
 * 5 Duplicate Invoices
 * 4 Purchase Order Mismatches
 * 3 Receipt Mismatches
@@ -57,7 +57,7 @@ The benchmark dataset resides in [`backend/app/data/ground_truth.json`](file:///
 
 ## 3. Verified Benchmark Results
 
-Current verified metrics from [`CFOBenchRunner`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/benchmarks/runner.py):
+Current verified metrics from [`CFOBenchRunner`](../../backend/app/benchmarks/runner.py):
 
 | Metric | Result | Target | Pass Condition |
 | :--- | :---: | :---: | :---: |
@@ -75,7 +75,7 @@ Current verified metrics from [`CFOBenchRunner`](file:///Users/shankar/.ao/data/
 
 ## 4. Confidence Calibration & ECE
 
-The [`compute_calibration_report`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/benchmarks/calibration_report.py) function partitions scenarios into confidence bins (e.g. $[0.9-1.0]$, $[0.8-0.9]$) and calculates the **Expected Calibration Error (ECE)**:
+The [`compute_calibration_report`](../../backend/app/benchmarks/calibration_report.py) function partitions scenarios into confidence bins (e.g. $[0.9-1.0]$, $[0.8-0.9]$) and calculates the **Expected Calibration Error (ECE)**:
 
 $$\text{ECE} = \sum_{b=1}^{B} \frac{|B_b|}{N} \left| \text{Accuracy}(B_b) - \text{Confidence}(B_b) \right|$$
 

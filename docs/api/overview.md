@@ -20,14 +20,14 @@ The Vexa backend exposes a REST and Server-Sent Events (SSE) surface built with 
 
 | Endpoint Prefix | Router Module | Description |
 | :--- | :--- | :--- |
-| **`/api/health`** | [`app.api.routes.health`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/health.py) | Liveness probe and database connectivity checks. |
-| **`/api/companies`** | [`app.api.routes.companies`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/companies.py) | Tenant provisioning and synthetic data seeding triggers. |
-| **`/api/close-runs`**| [`app.api.routes.close_runs`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/close_runs.py) | Month-end close lifecycle, task inspection, and live SSE stream. |
-| **`/api/exceptions`**| [`app.api.routes.exceptions`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/exceptions.py) | Exceptions, evidence dossiers, approvals, and 1-click reversals. |
-| **`/api/agent-runs`**| [`app.api.routes.agent_runs`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/agent_runs.py) | Agent execution history and granular step telemetry. |
-| **`/api/audit-events`**| [`app.api.routes.audit`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/audit.py) | Immutable SOX audit log queries. |
-| **`/api/benchmarks`**| [`app.api.routes.benchmarks`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/benchmarks.py) | 35-scenario benchmark execution and calibration reports. |
-| **`/api/demo`** | [`app.api.routes.demo`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/demo.py) | LIVE vs REPLAY demo mode toggle and trace streaming. |
+| **`/api/health`** | [`app.api.routes.health`](../../backend/app/api/routes/health.py) | Liveness probe and database connectivity checks. |
+| **`/api/companies`** | [`app.api.routes.companies`](../../backend/app/api/routes/companies.py) | Tenant provisioning and synthetic data seeding triggers. |
+| **`/api/close-runs`**| [`app.api.routes.close_runs`](../../backend/app/api/routes/close_runs.py) | Month-end close lifecycle, task inspection, and live SSE stream. |
+| **`/api/exceptions`**| [`app.api.routes.exceptions`](../../backend/app/api/routes/exceptions.py) | Exceptions, evidence dossiers, approvals, and 1-click reversals. |
+| **`/api/agent-runs`**| [`app.api.routes.agent_runs`](../../backend/app/api/routes/agent_runs.py) | Agent execution history and granular step telemetry. |
+| **`/api/audit-events`**| [`app.api.routes.audit`](../../backend/app/api/routes/audit.py) | Immutable SOX audit log queries. |
+| **`/api/benchmarks`**| [`app.api.routes.benchmarks`](../../backend/app/api/routes/benchmarks.py) | 35-scenario benchmark execution and calibration reports. |
+| **`/api/demo`** | [`app.api.routes.demo`](../../backend/app/api/routes/demo.py) | LIVE vs REPLAY demo mode toggle and trace streaming. |
 
 ---
 

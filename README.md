@@ -160,7 +160,7 @@ An action is executed autonomously (**Level 3**) **if and only if**:
 
 ## CFO-Bench Benchmark Performance
 
-Vexa is evaluated against the 35 ground-truth month-end close scenarios in [`backend/app/data/ground_truth.json`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/data/ground_truth.json):
+Vexa is evaluated against the 35 ground-truth month-end close scenarios in [`backend/app/data/ground_truth.json`](./backend/app/data/ground_truth.json):
 
 | Metric | Result | Target | Status |
 | :--- | :---: | :---: | :---: |
@@ -216,7 +216,7 @@ ClosePilot enforces an institutional segregation of duties across heterogeneous 
 
 To guarantee demonstration safety under live presentation conditions, Vexa includes a first-class replay engine:
 * **`LIVE` Mode:** Executes full async workflow against real PostgreSQL, generating graph traversals, LLM investigations, verifications, and real-time SSE telemetry.
-* **`REPLAY` Mode:** Replays verified execution traces captured by [`TraceRecorder`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/demo/trace_recorder.py) at authentic cadence via [`TracePlayer`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/demo/trace_player.py).
+* **`REPLAY` Mode:** Replays verified execution traces captured by [`TraceRecorder`](./backend/app/demo/trace_recorder.py) at authentic cadence via [`TracePlayer`](./backend/app/demo/trace_player.py).
 * **Zero Frontend Variance:** Both modes publish through the identical SSE streaming endpoint (`/api/close-runs/{id}/stream`), ensuring the frontend UI cannot differentiate between live execution and replay.
 
 Toggle demo mode via REST:

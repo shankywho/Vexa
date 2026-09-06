@@ -1,6 +1,6 @@
 # Audit API Reference
 
-Endpoints for retrieving immutable SOX audit events and internal control verification trails. Router: [`backend/app/api/routes/audit.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/audit.py).
+Endpoints for retrieving immutable SOX audit events and internal control verification trails. Router: [`backend/app/api/routes/audit.py`](../../backend/app/api/routes/audit.py).
 
 ---
 
@@ -16,7 +16,7 @@ Endpoints for retrieving immutable SOX audit events and internal control verific
   - `control_id` (string, optional): Filter by SOX control (`AP-03`, `PROC-04`, `BANK-01`, etc.).
   - `limit` (int, default: 100): Page size limit.
   - `offset` (int, default: 0): Page offset.
-* **Response:** Array of [`AuditEventRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
+* **Response:** Array of [`AuditEventRead`](../../backend/app/domain/schemas.py).
 * **Example Item:**
   ```json
   {

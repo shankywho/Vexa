@@ -6,7 +6,7 @@ This guide details managing the PostgreSQL schema, running migrations with Alemb
 
 ## 1. Alembic Migrations
 
-The database schema is versioned under [`backend/alembic/versions/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/alembic/versions/).
+The database schema is versioned under [`backend/alembic/versions/`](../../backend/alembic/versions/).
 
 ### Apply Migrations to HEAD
 ```bash

@@ -1,6 +1,6 @@
 # Close Runs API Reference
 
-Endpoints for initiating, monitoring, and streaming month-end close runs. Router: [`backend/app/api/routes/close_runs.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/close_runs.py).
+Endpoints for initiating, monitoring, and streaming month-end close runs. Router: [`backend/app/api/routes/close_runs.py`](../../backend/app/api/routes/close_runs.py).
 
 ---
 
@@ -17,7 +17,7 @@ Endpoints for initiating, monitoring, and streaming month-end close runs. Router
     "period_end": "2026-08-31"
   }
   ```
-* **Response:** [`CloseRunRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
+* **Response:** [`CloseRunRead`](../../backend/app/domain/schemas.py).
 
 ### 2. List Close Runs
 `GET /api/close-runs`

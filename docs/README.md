@@ -90,8 +90,9 @@ Key architectural trade-offs and design choices.
 * [ADR 004: Controlled Autonomy](./decisions/004-controlled-autonomy.md) — 4-tier autonomy with calibrated confidence and materiality gates.
 * [ADR 005: Live vs Replay Demo Architecture](./decisions/005-live-replay-demo.md) — Eliminating live presentation failure modes through deterministic trace replays.
 
-### 8. [Frontend & UI Specifications](./FRONTEND_REQUIREMENTS.md)
+### 8. [Frontend Web Application](https://vexa-workspace.vercel.app/)
 Authenticated client architecture, workflows, routes, and screen specifications.
-* [Frontend Requirements Specification](./FRONTEND_REQUIREMENTS.md) — Full specification detailing authenticated routes, persona workflows, layouts, sections, and 16 operational pages (excluding landing page).
+* [Live Frontend Workspace](https://vexa-workspace.vercel.app/) — High-density financial command center for month-end close execution, real-time SSE telemetry, and certified close package generation.
+
 
 

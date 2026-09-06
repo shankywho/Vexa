@@ -6,7 +6,7 @@ The Close Run workflow in Vexa manages the month-end financial closing process a
 
 ## 1. Close Run State Machine
 
-A `CloseRun` transitions through 12 formal states governed by [`CloseWorkflowStateMachine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/state_machine.py).
+A `CloseRun` transitions through 12 formal states governed by [`CloseWorkflowStateMachine`](../../backend/app/close_workflow/state_machine.py).
 
 ```mermaid
 stateDiagram-v2
@@ -103,7 +103,7 @@ If another process modified the close run concurrently, the query returns `None`
 
 ## 2. Close Task Dependency DAG
 
-Vexa defines 10 discrete close tasks. The [`TaskDependencyResolver`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/dependencies.py) constructs and verifies a Directed Acyclic Graph (DAG) enforcing deterministic topological ordering:
+Vexa defines 10 discrete close tasks. The [`TaskDependencyResolver`](../../backend/app/close_workflow/dependencies.py) constructs and verifies a Directed Acyclic Graph (DAG) enforcing deterministic topological ordering:
 
 ```mermaid
 graph TD
@@ -158,7 +158,7 @@ graph TD
 
 ## 3. Workflow Execution Sequence
 
-The [`CloseWorkflowController`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/controller.py) executes the close workflow through structured phases:
+The [`CloseWorkflowController`](../../backend/app/close_workflow/controller.py) executes the close workflow through structured phases:
 
 ```mermaid
 sequenceDiagram
@@ -207,7 +207,7 @@ sequenceDiagram
 
 ## 4. Close Readiness Evaluation
 
-Before advancing to `READY_TO_CLOSE`, [`CloseReadinessEvaluator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/close_workflow/readiness.py) inspects company ledger state:
+Before advancing to `READY_TO_CLOSE`, [`CloseReadinessEvaluator`](../../backend/app/close_workflow/readiness.py) inspects company ledger state:
 1. **Mandatory Task Completion:** Every close task must be in `COMPLETED` status.
 2. **Zero Blocking Exceptions:** Exceptions of severity `CRITICAL` or `HIGH` must not remain in `OPEN` or `INVESTIGATING` status.
 3. **Materiality Gate:** Total unresolved financial variance must not exceed the policy materiality threshold (default: $50,000).
@@ -219,7 +219,7 @@ If any criterion fails, the close run transitions to `BLOCKED` and publishes the
 
 ## 5. Close Package Generation
 
-Once marked `READY_TO_CLOSE` or `CLOSED`, the system compiles an immutable **Close Package** ([`ClosePackageRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py)):
+Once marked `READY_TO_CLOSE` or `CLOSED`, the system compiles an immutable **Close Package** ([`ClosePackageRead`](../../backend/app/domain/schemas.py)):
 * **Close Metadata:** Period dates, company ID, duration, close version.
 * **Reconciliation Summary:** Total records processed, match counts, partials, mismatches, and missing documents.
 * **Exceptions Log:** Resolved, staged, and escalated exceptions with causal explanations and verified impact.

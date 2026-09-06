@@ -6,7 +6,7 @@ The Independent Verification component acts as an autonomous firewall, ensuring 
 
 ## 1. Package Structure
 
-Located at [`backend/app/verification/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/):
+Located at [`backend/app/verification/`](../../backend/app/verification/):
 
 ```
 app/verification/
@@ -74,7 +74,7 @@ if dossier.exception_type in (ExceptionType.PO_MISMATCH, ExceptionType.RECEIPT_M
 ### 3.2 `EvidenceCompletenessVerifier`
 Verifies that all required supporting documents are cited and present:
 * Confirms mandatory categories for the exception type (e.g. `["invoices", "purchase_orders"]` for `PO_MISMATCH`).
-* Verifies zero hallucinated citations from [`CitationValidator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/citation_validator.py).
+* Verifies zero hallucinated citations from [`CitationValidator`](../../backend/app/investigation/citation_validator.py).
 
 ### 3.3 `PolicyGateVerifier`
 Enforces corporate close governance policies:
@@ -87,7 +87,7 @@ Enforces corporate close governance policies:
 
 ## 4. Output Contract: `VerificationResult`
 
-Defined in [`app/verification/types.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/types.py#L28):
+Defined in [`app/verification/types.py`](../../backend/app/verification/types.py#L28):
 
 ```json
 {

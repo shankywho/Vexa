@@ -6,7 +6,7 @@ The Reconciliation Engine is Vexa's deterministic mathematical core. It evaluate
 
 ## 1. Package Structure
 
-Located at [`backend/app/reconciliation/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/):
+Located at [`backend/app/reconciliation/`](../../backend/app/reconciliation/):
 
 ```
 app/reconciliation/
@@ -23,7 +23,7 @@ app/reconciliation/
 
 ### Pass 1: Three-Way Matching & Procurement Reconciliations
 * **Target:** Billed Invoices ↔ Authorized Purchase Orders ↔ Goods Receipts.
-* **Logic:** Evaluates unit prices, quantities, item descriptions, and totals. Supports multi-currency conversion via [`FxService`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/services/fx_service.py).
+* **Logic:** Evaluates unit prices, quantities, item descriptions, and totals. Supports multi-currency conversion via [`FxService`](../../backend/app/services/fx_service.py).
 * **Outputs:**
   - `MATCHED`: Billed amount matches PO within tolerance ($\le \$0.01$ or $1\%$).
   - `MISMATCH`: Quantity or price variance $\rightarrow$ generates `PO_MISMATCH` or `RECEIPT_MISMATCH`.
@@ -87,7 +87,7 @@ app/reconciliation/
 
 ## 3. Structured Output Contract
 
-The reconciliation engine outputs a [`ReconciliationRunSummary`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/reconciliation/schemas.py#L88):
+The reconciliation engine outputs a [`ReconciliationRunSummary`](../../backend/app/reconciliation/schemas.py#L88):
 
 ```json
 {

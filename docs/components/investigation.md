@@ -6,7 +6,7 @@ The Investigation subsystem provides autonomous forensic reasoning over financia
 
 ## 1. Package Structure
 
-Located at [`backend/app/investigation/`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/):
+Located at [`backend/app/investigation/`](../../backend/app/investigation/):
 
 ```
 app/investigation/
@@ -26,9 +26,9 @@ app/investigation/
 
 ## 2. Dossier Construction: `EvidenceDossierBuilder`
 
-To prevent agents from hallucinating nonexistent records or searching unbounded database state, [`EvidenceDossierBuilder`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/dossier_builder.py) builds a frozen `EvidenceDossier`:
+To prevent agents from hallucinating nonexistent records or searching unbounded database state, [`EvidenceDossierBuilder`](../../backend/app/investigation/dossier_builder.py) builds a frozen `EvidenceDossier`:
 1. **Primary Entity Extraction:** Retrieves the record directly tied to the exception (`Invoice`, `Payment`, `BankTransaction`, etc.).
-2. **Graph Traversal:** Extracts 2-hop to 4-hop neighboring nodes and directed edges from [`FinancialEvidenceGraph`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/evidence_graph/graph.py).
+2. **Graph Traversal:** Extracts 2-hop to 4-hop neighboring nodes and directed edges from [`FinancialEvidenceGraph`](../../backend/app/evidence_graph/graph.py).
 3. **Whitelist Formulation:** Builds two immutable sets:
    - `valid_record_ids`: Set of all raw database UUIDs present in the subgraph.
    - `valid_evidence_ids`: Set of all typed node IDs (e.g. `invoice:44a1-b8...`).
@@ -38,7 +38,7 @@ To prevent agents from hallucinating nonexistent records or searching unbounded 
 
 ## 3. The Investigation Finding Contract
 
-The agent generates a structured [`InvestigationFinding`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/types.py#L76):
+The agent generates a structured [`InvestigationFinding`](../../backend/app/investigation/types.py#L76):
 
 ```json
 {
@@ -85,16 +85,16 @@ The agent generates a structured [`InvestigationFinding`](file:///Users/shankar/
 
 ## 4. Citation Hallucination Guard
 
-The [`CitationValidator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/citation_validator.py) checks every identifier in `facts` and `inferences` against `dossier.valid_record_ids` and `dossier.valid_evidence_ids`:
+The [`CitationValidator`](../../backend/app/investigation/citation_validator.py) checks every identifier in `facts` and `inferences` against `dossier.valid_record_ids` and `dossier.valid_evidence_ids`:
 * **Valid:** The ID is confirmed as an actual database record present in the dossier.
 * **Hallucinated:** If the model invents a synthetic ID (e.g. `INV-FAKE-999`), it is captured in `hallucinated_citations`.
-* **Penalty:** An invalid citation drops `all_citations_valid` to `False`, applies a `0.50` penalty in [`ConfidenceCalibrator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/calibration.py), and automatically fails Independent Verification Gate 2.
+* **Penalty:** An invalid citation drops `all_citations_valid` to `False`, applies a `0.50` penalty in [`ConfidenceCalibrator`](../../backend/app/investigation/calibration.py), and automatically fails Independent Verification Gate 2.
 
 ---
 
 ## 5. Model Provider Abstraction & Deterministic Fallback
 
-The system isolates model interaction behind the [`LLMProvider`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/llm_provider.py) interface:
+The system isolates model interaction behind the [`LLMProvider`](../../backend/app/investigation/llm_provider.py) interface:
 * **`DeterministicInvestigationProvider`**: 100% deterministic local rules provider evaluating ground truth scenarios without external API calls (default for unit testing and offline development).
 * **`OpenAIInvestigationProvider`**: Structured JSON model calls using `gpt-4o`.
 * **Automatic Fallback:** If an external LLM request times out ($>30\text{s}$) or encounters network dropouts, the system falls back to the deterministic provider to guarantee completion without blocking the close workflow.

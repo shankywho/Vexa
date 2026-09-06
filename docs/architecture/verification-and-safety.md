@@ -55,7 +55,7 @@ Vexa is engineered under a zero-trust model for artificial intelligence in corpo
 
 ## 2. Gate 1: Independent Calculation Verification
 
-The [`IndependentCalculationVerifier`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/engine.py#L18) recalculates financial variances directly from source database records without inspecting the agent's textual narrative.
+The [`IndependentCalculationVerifier`](../../backend/app/verification/engine.py#L18) recalculates financial variances directly from source database records without inspecting the agent's textual narrative.
 
 ### Verification Logic:
 1. **Clean Transactions:** If an exception is identified as a clean match, recalculated impact **must** equal `Decimal("0.00")`. Any recorded variance $> 0.01$ fails verification.
@@ -66,7 +66,7 @@ The [`IndependentCalculationVerifier`](file:///Users/shankar/.ao/data/worktrees/
    $$\Delta_{calc} = | \text{BankTransaction.amount} - \text{Payment.amount} |$$
    If no payment exists, $\Delta_{calc} = \text{BankTransaction.amount}$.
 4. **General Ledger Discrepancies:**
-   Journal entry debit and credit totals are summed directly from [`JournalEntryLine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/db/models/ledger.py) rows to confirm double-entry balance.
+   Journal entry debit and credit totals are summed directly from [`JournalEntryLine`](../../backend/app/db/models/ledger.py) rows to confirm double-entry balance.
 
 If any arithmetic discrepancy occurs, the verifier records a calculation error and permanently demotes the autonomy level to `OBSERVE` (blocking autonomous action).
 
@@ -74,7 +74,7 @@ If any arithmetic discrepancy occurs, the verifier records a calculation error a
 
 ## 3. Gate 2: Evidence Completeness Verification
 
-The [`EvidenceCompletenessVerifier`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/engine.py#L150) enforces that required evidentiary categories exist in the dossier:
+The [`EvidenceCompletenessVerifier`](../../backend/app/verification/engine.py#L150) enforces that required evidentiary categories exist in the dossier:
 
 ```python
 REQUIRED_TYPES_BY_EXCEPTION = {
@@ -96,7 +96,7 @@ REQUIRED_TYPES_BY_EXCEPTION = {
 ```
 
 ### Hallucination Elimination:
-If [`CitationValidator`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/citation_validator.py) flags even a single hallucinated citation (`record_id` not found in dossier), Gate 2 immediately fails:
+If [`CitationValidator`](../../backend/app/investigation/citation_validator.py) flags even a single hallucinated citation (`record_id` not found in dossier), Gate 2 immediately fails:
 ```python
 if not finding.all_citations_valid or finding.hallucinated_citations:
     missing.append(f"Fatal citation failure: finding cited non-existent IDs: {finding.hallucinated_citations}")
@@ -106,7 +106,7 @@ if not finding.all_citations_valid or finding.hallucinated_citations:
 
 ## 4. Gate 3: Policy Gates & Autonomy Determination
 
-The [`PolicyGateVerifier`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/verification/engine.py#L239) evaluates whether an issue can be autonomously resolved or must be escalated to a human controller:
+The [`PolicyGateVerifier`](../../backend/app/verification/engine.py#L239) evaluates whether an issue can be autonomously resolved or must be escalated to a human controller:
 
 ### 4.1 Hard Safety Overrides (Mandatory CFO Escalation)
 Any exception matching these criteria is immediately locked to **Autonomy Level 1 (`RECOMMEND`)**:
@@ -131,7 +131,7 @@ Evaluated against empirical calibrated confidence, never the raw LLM score.
 
 ## 5. Investigation Circuit Breaker
 
-The Investigation Agent is bounded by strict resource and time limits in [`app/config.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/config.py):
+The Investigation Agent is bounded by strict resource and time limits in [`app/config.py`](../../backend/app/config.py):
 
 | Parameter | Configuration Setting | Default Value | Description |
 | :--- | :--- | :---: | :--- |
@@ -141,7 +141,7 @@ The Investigation Agent is bounded by strict resource and time limits in [`app/c
 
 ### Tripped State Handling:
 If an agent loop exceeds 15 steps or 30 seconds:
-1. Raises [`InvestigationCircuitBreakerTripped`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/investigation/agent.py#L49) with reason `"STEP_LIMIT"` or `"TIMEOUT"`.
+1. Raises [`InvestigationCircuitBreakerTripped`](../../backend/app/investigation/agent.py#L49) with reason `"STEP_LIMIT"` or `"TIMEOUT"`.
 2. Updates `AgentRun.status = FAILED` or `TIMED_OUT`.
 3. Emits `AuditEventType.AGENT_RUN_COMPLETED` recording circuit breaker trip.
 4. Publishes `agent_run_failed` event to the real-time SSE bus.
@@ -161,7 +161,7 @@ Vexa is strictly segregated from banking disbursement APIs. Permitted actions ar
 
 ### The Reversal Engine
 If an action is reversed by a human reviewer:
-1. [`ReversalEngine`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/action/reversal.py) creates a new `ReversalAction` record pointing to the original `ExceptionAction.id`.
+1. [`ReversalEngine`](../../backend/app/action/reversal.py) creates a new `ReversalAction` record pointing to the original `ExceptionAction.id`.
 2. The original action status is updated to `REVERSED` (historical rows are never deleted).
 3. The associated exception is reopened (`status = REOPENED`, `resolved_at = None`).
 4. Any downstream effects (such as staged draft journal entries) are explicitly voided.

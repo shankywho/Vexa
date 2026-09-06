@@ -1,6 +1,6 @@
 # Exceptions API Reference
 
-Endpoints for inspecting financial exceptions, retrieving bounded evidence dossiers, executing human approvals, and triggering 1-click reversals. Router: [`backend/app/api/routes/exceptions.py`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/api/routes/exceptions.py).
+Endpoints for inspecting financial exceptions, retrieving bounded evidence dossiers, executing human approvals, and triggering 1-click reversals. Router: [`backend/app/api/routes/exceptions.py`](../../backend/app/api/routes/exceptions.py).
 
 ---
 
@@ -9,7 +9,7 @@ Endpoints for inspecting financial exceptions, retrieving bounded evidence dossi
 ### 1. Get Human Correction Statistics
 `GET /api/exceptions/corrections/stats`
 * **Description:** Retrieves aggregate human review and override statistics overall, by exception type, and by confidence bucket, including advisory tuning candidates.
-* **Response:** [`HumanCorrectionStatsRead`](file:///Users/shankar/.ao/data/worktrees/vexa/vexa-8/backend/app/domain/schemas.py).
+* **Response:** [`HumanCorrectionStatsRead`](../../backend/app/domain/schemas.py).
 
 ### 2. Get Exception Details
 `GET /api/exceptions/{id}`
