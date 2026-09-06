@@ -89,3 +89,9 @@ Key architectural trade-offs and design choices.
 * [ADR 003: Independent Verification](./decisions/003-independent-verification.md) — Separating hypothesis generation from independent verification.
 * [ADR 004: Controlled Autonomy](./decisions/004-controlled-autonomy.md) — 4-tier autonomy with calibrated confidence and materiality gates.
 * [ADR 005: Live vs Replay Demo Architecture](./decisions/005-live-replay-demo.md) — Eliminating live presentation failure modes through deterministic trace replays.
+
+### 8. [Frontend & UI Specifications](./FRONTEND_REQUIREMENTS.md)
+Authenticated client architecture, workflows, routes, and screen specifications.
+* [Frontend Requirements Specification](./FRONTEND_REQUIREMENTS.md) — Full specification detailing authenticated routes, persona workflows, layouts, sections, and 16 operational pages (excluding landing page).
+
+
