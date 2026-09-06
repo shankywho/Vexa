@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://vexa-3.onrender.com/api/:path*"
+      "destination": "https://vexa-1-4nzo.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
