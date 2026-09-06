@@ -7,6 +7,7 @@ defaults so the backend runs out of the box.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Self
 
@@ -83,7 +84,7 @@ class Settings(BaseSettings):
     # Database
     db_url: str = Field(
         default="postgresql+asyncpg://localhost:5432/vexa",
-        validation_alias=AliasChoices("VEXA_DB_URL", "DATABASE_URL"),
+        validation_alias=AliasChoices("DATABASE_URL", "VEXA_DB_URL"),
         description="PostgreSQL connection string with asyncpg driver",
     )
     db_echo: bool = False
@@ -93,6 +94,9 @@ class Settings(BaseSettings):
     @field_validator("db_url", mode="before")
     @classmethod
     def normalize_db_url(cls, v: str | None) -> str:
+        cloud_url = os.environ.get("DATABASE_URL")
+        if cloud_url and "localhost" not in cloud_url and (not v or "localhost" in str(v)):
+            v = cloud_url
         if not v:
             return "postgresql+asyncpg://localhost:5432/vexa"
         url = str(v).strip()
