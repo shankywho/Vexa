@@ -508,6 +508,7 @@ class CloseWorkflowController:
             actor=officer_name,
             reason=f"Certified and signed off by {officer_name}. {notes or ''}".strip(),
             metadata_={"officer_name": officer_name, "notes": notes},
+            force=True,
         )
         return updated_run
 

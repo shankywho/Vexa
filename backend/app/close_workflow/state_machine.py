@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 ALLOWED_CLOSE_RUN_TRANSITIONS: dict[CloseRunStatus, set[CloseRunStatus]] = {
     CloseRunStatus.CREATED: {
         CloseRunStatus.INGESTING,
-        CloseRunStatus.READY_TO_CLOSE,
-        CloseRunStatus.CLOSED,
         CloseRunStatus.FAILED,
         CloseRunStatus.BLOCKED,
     },
@@ -140,6 +138,7 @@ class CloseWorkflowStateMachine:
         actor: str = "close_controller",
         reason: str | None = None,
         metadata_: dict[str, Any] | None = None,
+        force: bool = False,
     ) -> CloseRun:
         """Execute a Compare-And-Swap (CAS) state transition on a CloseRun.
 
@@ -157,7 +156,7 @@ class CloseWorkflowStateMachine:
             return close_run
 
         allowed = ALLOWED_CLOSE_RUN_TRANSITIONS.get(current, set())
-        if new_status not in allowed:
+        if not force and new_status not in allowed:
             raise CloseRunError(f"Invalid transition {current} -> {new_status}")
 
         values_to_update: dict[str, Any] = {
